@@ -1,0 +1,27 @@
+CRASH-02: reject clock times with more than three fields
+
+hour() splits a clock time at its colons into double y[3], but the loop
+ran while n <= 3, so a fourth field (for example DURATION 1:2:3:4 or
+AT CLOCKTIME 1:2:3:4) was written to y[3], past the end of the array.
+A clock time has at most three fields (hh:mm:ss), so hour() now returns
+-1, its error value, when a fourth field is present. Its callers already
+report -1 as an invalid value.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-02_fix.patch
+
+diff --git a/src/input2.c b/src/input2.c
+index 220c757..d6b488d 100644
+--- a/src/input2.c
++++ b/src/input2.c
+@@ -637,8 +637,9 @@ double hour(char *time, char *units)
+     for (n = 0; n < 3; n++) y[n] = 0.0;
+     n = 0;
+     s = strtok(time, ":");
+-    while (s != NULL && n <= 3)
++    while (s != NULL)
+     {
++        if (n == 3) return -1.0;    // More than hh:mm:ss
+         if (!getfloat(s, &y[n])) return -1.0;
+         s = strtok(NULL, ":");
+         n++;

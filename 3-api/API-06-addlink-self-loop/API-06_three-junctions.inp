@@ -1,0 +1,24 @@
+[TITLE]
+API-06: reservoir R1 feeds a chain of three junctions; the test adds a pipe from J3 to J3
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     50
+ J2   0     50
+ J3   0     50
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    12    100    0      Open
+ P3  J2  J3  1000    12    100    0      Open
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

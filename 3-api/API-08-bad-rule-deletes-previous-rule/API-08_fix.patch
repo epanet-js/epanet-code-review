@@ -1,0 +1,42 @@
+API-08: make a bad EN_addrule string leave existing rules alone
+
+On an error EN_addrule deleted rule number Nrules, but Nrules only
+grows once a valid RULE clause has been read. A bad first clause or a
+bad RULE line therefore deleted the previous rule, or took Nrules to -1
+when there was none. A leading DISABLED clause was also accepted and
+disabled the previous rule. EN_addrule now returns 221 unless the first
+clause is RULE, and deletes a rule only if this call added one. It uses
+the rule count that the CRASH-17 fix records on entry.
+
+Requires: CRASH-17
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-17:
+    git apply API-08_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index d9b0835..00e9ae1 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -5658,6 +5658,13 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+         // Process the line to build up the rule's contents
+         if (parser->Ntokens > 0 && *parser->Tok[0] != ';')
+         {
++            // The first clause must start the new rule
++            if (net->Nrules == nrules && !match(parser->Tok[0], w_RULE))
++            {
++                rules->Errcode = 221;
++                break;
++            }
++
+             // Only one rule can be added at a time
+             if (net->Nrules > nrules && match(parser->Tok[0], w_RULE))
+             {
+@@ -5674,7 +5681,7 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+     }
+ 
+     // Delete new rule entry if there was an error
+-    if (rules->Errcode) deleterule(p, net->Nrules);
++    if (rules->Errcode && net->Nrules > nrules) deleterule(p, net->Nrules);
+ 
+     // Re-assign error code 201 (syntax error) to 250 (invalid format)
+     if (rules->Errcode == 201) rules->Errcode = 250;

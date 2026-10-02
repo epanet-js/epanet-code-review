@@ -1,0 +1,170 @@
+SIM-23: keep full-precision heads for the output file's head loss
+
+EN_solveQ writes the binary output file from the scratch hydraulics
+file, which stores heads as 4-byte floats. Head loss and friction factor
+are differences of those heads, so in lightly loaded pipes they lose most
+of their digits or become 0. Keep a copy of the heads as doubles in a
+second scratch file while the hydraulics run, and let readhyd() use it.
+The hydraulics file itself is unchanged, so EN_savehydfile, EN_usehydfile
+and EPANET-MSX, which reads that file directly, are not affected. With a
+file from EN_usehydfile there is no copy, and the heads stay 4-byte.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-23_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..b503e73 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -383,6 +383,7 @@ int DLLEXPORT EN_close(EN_Project p)
+         fclose(p->outfile.HydFile);
+         p->outfile.HydFile = NULL;
+     }
++    closeheadfile(p);
+ 
+     // Reset system flags
+     p->Openflag = FALSE;
+diff --git a/src/funcs.h b/src/funcs.h
+index 7201aa0..0bd79ff 100755
+--- a/src/funcs.h
++++ b/src/funcs.h
+@@ -24,6 +24,7 @@ int     openfiles(Project *, const char *, const char *,const char *);
+ int     openhydfile(Project *);
+ int     openoutfile(Project *);
+ void    closeoutfile(Project *);
++void    closeheadfile(Project *);
+ 
+ int     buildadjlists(Network *);
+ void    freeadjlists(Network *);
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..c695236 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -176,6 +176,7 @@ void inithyd(Project *pr, int initflag)
+     if (pr->outfile.Saveflag)
+     {
+         fseek(out->HydFile,out->HydOffset,SEEK_SET);
++        if (out->HeadFile != NULL) fseek(out->HeadFile, 0, SEEK_SET);
+     }
+ 
+     // Initialize current time
+diff --git a/src/output.c b/src/output.c
+index 5ecd743..73490ae 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -198,6 +198,10 @@ int savehyd(Project *pr, long *htime)
+     for (i = 1; i <= net->Nnodes; i++) x[i] = (REAL4)hyd->NodeHead[i];
+     fwrite(x + 1, sizeof(REAL4), net->Nnodes, HydFile);
+     //f_save(x, net->Nnodes, HydFile);
++    if (out->HeadFile != NULL)
++    {
++        fwrite(hyd->NodeHead + 1, sizeof(double), net->Nnodes, out->HeadFile);
++    }
+ 
+     // Force flow in closed links to be zero then save flows
+     for (i = 1; i <= net->Nlinks; i++)
+@@ -363,6 +367,11 @@ int readhyd(Project *pr, long *hydtime)
+     if (f_read(x, net->Nnodes, HydFile) < (unsigned)net->Nnodes) result = 0;
+     else for (i = 1; i <= net->Nnodes; i++) hyd->NodeHead[i] = x[i];
+ 
++    // Replace the heads with their full-precision copy, if one was kept
++    if (out->HeadFile != NULL &&
++        fread(hyd->NodeHead + 1, sizeof(double), net->Nnodes, out->HeadFile) <
++        (unsigned)net->Nnodes) result = 0;
++
+     if (f_read(x, net->Nlinks, HydFile) < (unsigned)net->Nlinks) result = 0;
+     else for (i = 1; i <= net->Nlinks; i++) hyd->LinkFlow[i] = x[i];
+ 
+diff --git a/src/project.c b/src/project.c
+index 792ccab..2925621 100644
+--- a/src/project.c
++++ b/src/project.c
+@@ -117,6 +117,7 @@ int openfiles(Project *pr, const char *f1, const char *f2, const char *f3)
+     pr->report.RptFile = NULL;
+     pr->outfile.OutFile = NULL;
+     pr->outfile.HydFile = NULL;
++    pr->outfile.HeadFile = NULL;
+     pr->outfile.TmpOutFile = NULL;
+ 
+     // Save file names
+@@ -175,6 +176,7 @@ int openhydfile(Project *pr)
+         fclose(pr->outfile.HydFile);
+         pr->outfile.HydFile = NULL;
+     }
++    closeheadfile(pr);
+ 
+     // Use Hydflag to determine the type of hydraulics file to use.
+     // Write error message if the file cannot be opened.
+@@ -209,6 +211,13 @@ int openhydfile(Project *pr)
+         fwrite(&magic, sizeof(INT4), 1, pr->outfile.HydFile);
+         fwrite(&version, sizeof(INT4), 1, pr->outfile.HydFile);
+         fwrite(nsize, sizeof(INT4), 6, pr->outfile.HydFile);
++
++        // HydFile stores heads as 4-byte floats. Also keep them at full
++        // precision in a scratch file, so that head losses written to the
++        // output file are not computed from rounded heads. (If the file
++        // cannot be opened, the rounded heads are used as before.)
++        getTmpName(pr->outfile.HeadFname);
++        pr->outfile.HeadFile = fopen(pr->outfile.HeadFname, "w+b");
+     }
+ 
+     // If a previous hydraulics solution is being used, then
+@@ -298,6 +307,23 @@ void closeoutfile(Project *pr)
+     }
+ }
+ 
++void closeheadfile(Project *pr)
++/*----------------------------------------------------------------
++**  Input:   none
++**  Output:  none
++**  Purpose: closes and deletes the scratch file of full-precision
++**           heads that goes with the hydraulics file.
++**----------------------------------------------------------------
++*/
++{
++    if (pr->outfile.HeadFile != NULL)
++    {
++        fclose(pr->outfile.HeadFile);
++        pr->outfile.HeadFile = NULL;
++        remove(pr->outfile.HeadFname);
++    }
++}
++
+ void initpointers(Project *pr)
+ /*----------------------------------------------------------------
+ **  Input:   none
+diff --git a/src/quality.c b/src/quality.c
+index 36c89b9..1d4d29f 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -124,6 +124,10 @@ int initqual(Project *pr)
+     if (!hyd->OpenHflag)
+     {
+         fseek(pr->outfile.HydFile, pr->outfile.HydOffset, SEEK_SET);
++        if (pr->outfile.HeadFile != NULL)
++        {
++            fseek(pr->outfile.HeadFile, 0, SEEK_SET);
++        }
+     }
+ 
+     // Set elapsed times to zero
+diff --git a/src/types.h b/src/types.h
+index b35c5cd..75f31f3 100755
+--- a/src/types.h
++++ b/src/types.h
+@@ -681,6 +681,7 @@ typedef struct {
+ 
+   char
+     HydFname[MAXFNAME+1],  // Hydraulics file name
++    HeadFname[MAXFNAME+1], // Full-precision heads file name
+     OutFname[MAXFNAME+1];  // Binary output file name
+ 
+   int
+@@ -698,6 +699,7 @@ typedef struct {
+   FILE
+     *OutFile,              // Output file handle
+     *HydFile,              // Hydraulics file handle
++    *HeadFile,             // Full-precision heads file handle
+     *TmpOutFile;           // Temporary file handle
+ 
+ } Outfile;

@@ -1,0 +1,37 @@
+[TITLE]
+CRASH-14: small network with one simple control and one rule
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   50
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  150   10         0         20        50        0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  T1  1000    12    100    0      Open
+
+[CONTROLS]
+ LINK P2 CLOSED IF NODE T1 ABOVE 19
+
+[RULES]
+RULE R1
+IF TANK T1 LEVEL > 15
+THEN PIPE P1 STATUS = CLOSED
+ELSE PIPE P1 STATUS = OPEN
+
+[TIMES]
+ Duration  6:00
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

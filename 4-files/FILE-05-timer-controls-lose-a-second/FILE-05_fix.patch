@@ -1,0 +1,26 @@
+FILE-05: round control times to the nearest second when reading them
+
+controldata() converts a control's time from hours to seconds with
+(long)(3600.0 * time), which truncates. A time read as h:mm:ss can come
+out just below the whole second (0:01:01 gives 60.99999999999999 s, so
+60 s), and the writer's "%.4f HOURS" rounds 45 % of times down by up to
+0.18 s, so they lose a second on reload. Round instead, as timedata()
+already does for [TIMES]. Four decimals of an hour are 0.36 s, so a
+rounded time always comes back to the second that was saved.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-05_fix.patch
+
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..3800ebe 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -1039,7 +1039,7 @@ int controldata(Project *pr)
+     control->Type = ctltype;
+     control->Status = status;
+     control->Setting = setting;
+-    control->Time = (long)(3600.0 * time);
++    control->Time = (long)(3600.0 * time + 0.5);
+     if (ctltype == TIMEOFDAY) control->Time %= SECperDAY;
+     control->Grade = level;
+     control->isEnabled = isEnabled;

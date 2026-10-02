@@ -1,0 +1,23 @@
+CRASH-21: reject a demand index below 1 in EN_deletedemand
+
+With demandIndex 0 (or negative) EN_deletedemand skips both the "head
+of list" case and the search loop, so it unlinks nothing but frees the
+first demand. node->D still points to the freed demand, and the next
+read or EN_close uses freed memory. Return 253, as EN_getbasedemand
+and the other demand functions already do for an index below 1.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-21_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..9ce1a3e 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -3106,6 +3106,7 @@ int DLLEXPORT EN_deletedemand(EN_Project p, int nodeIndex, int demandIndex)
+     // Check for valid arguments
+     if (!p->Openflag) return 102;
+     if (nodeIndex <= 0 || nodeIndex > p->network.Nnodes) return 203;
++    if (demandIndex <= 0) return 253;
+ 
+     // Only junctions have demands
+     if (nodeIndex <= p->network.Njuncs)

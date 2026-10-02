@@ -1,0 +1,84 @@
+FILE-08: quote saved strings that contain spaces
+
+The API accepts a chemical name, chemical units, tags and file names
+that contain spaces, but saveinpfile() writes them as they are, so the
+reader splits them into separate tokens: "Free Chlorine" comes back as
+name "Free" and units "Chlorine". The tokenizer already reads a token in
+double quotes as one token. Write these strings in double quotes when
+they contain a space or a tab, and as before otherwise.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-08_fix.patch
+
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..7cf6cc1 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -103,6 +103,20 @@ void saveauxdata(Project *pr, FILE *f)
+     InFile = NULL;
+ }
+ 
++static char *quotestr(const char *s, char *buf)
++/*
++------------------------------------------------------------
++  Returns s enclosed in double quotes (copied to buf) if it
++  contains a space or tab, so that it is read back as a
++  single token; otherwise returns s.
++------------------------------------------------------------
++*/
++{
++    if (strpbrk(s, " \t") == NULL) return (char *)s;
++    sprintf(buf, "\"%s\"", s);
++    return buf;
++}
++
+ int saveinpfile(Project *pr, const char *fname)
+ /*
+ -------------------------------------------------
+@@ -691,10 +705,10 @@ int saveinpfile(Project *pr, const char *fname)
+     switch (out->Hydflag)
+     {
+         case USE:
+-          fprintf(f, "\n HYDRAULICS USE      %s", out->HydFname);
++          fprintf(f, "\n HYDRAULICS USE      %s", quotestr(out->HydFname, s1));
+           break;
+         case SAVE:
+-          fprintf(f, "\n HYDRAULICS SAVE     %s", out->HydFname);
++          fprintf(f, "\n HYDRAULICS SAVE     %s", quotestr(out->HydFname, s1));
+           break;
+     }
+     if (hyd->ExtraIter == -1)
+@@ -710,7 +724,7 @@ int saveinpfile(Project *pr, const char *fname)
+     {
+         case CHEM:
+           fprintf(f, "\n QUALITY             %s %s",
+-                  qual->ChemName, qual->ChemUnits);
++                  quotestr(qual->ChemName, s1), quotestr(qual->ChemUnits, s2));
+           break;
+         case TRACE:
+           fprintf(f, "\n QUALITY             TRACE %-31s",
+@@ -768,7 +782,7 @@ int saveinpfile(Project *pr, const char *fname)
+     fprintf(f, "\n MESSAGES            %s", RptFlagTxt[rpt->Messageflag]);
+     if (strlen(rpt->Rpt2Fname) > 0)
+     {
+-        fprintf(f, "\n FILE                %s", rpt->Rpt2Fname);
++        fprintf(f, "\n FILE                %s", quotestr(rpt->Rpt2Fname, s1));
+     }
+ 
+     // Node reporting
+@@ -844,13 +858,13 @@ int saveinpfile(Project *pr, const char *fname)
+     {
+         node = &net->Node[i];
+         if (node->Tag == NULL || strlen(node->Tag) == 0) continue;
+-        fprintf(f, "\n %-8s\t%-31s\t%s", "NODE", node->ID, node->Tag);
++        fprintf(f, "\n %-8s\t%-31s\t%s", "NODE", node->ID, quotestr(node->Tag, s1));
+     }
+     for (i = 1; i <= net->Nlinks; i++)
+     {
+         link = &net->Link[i];
+         if (link->Tag == NULL || strlen(link->Tag) == 0) continue;
+-        fprintf(f, "\n %-8s\t%-31s\t%s", "LINK", link->ID, link->Tag);
++        fprintf(f, "\n %-8s\t%-31s\t%s", "LINK", link->ID, quotestr(link->Tag, s1));
+     }
+     // Write [COORDINATES] section
+     fprintf(f, "\n\n");

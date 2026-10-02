@@ -1,0 +1,25 @@
+API-17: return the halt flag from EN_gettimeparam(EN_HALTFLAG)
+
+The EN_QTIME case had no break and fell through into an empty
+EN_HALTFLAG case, so EN_HALTFLAG always returned 0 (and EN_QTIME only
+worked because the empty case ends with a break). Add the break and
+return hyd->Haltflag, which runhyd() sets when an unbalanced solution
+halts the run (UNBALANCED STOP).
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-17_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..ef20814 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1621,7 +1621,9 @@ int DLLEXPORT EN_gettimeparam(EN_Project p, int param, long *value)
+         break;
+     case EN_QTIME:
+         *value = time->Qtime;
++        break;
+     case EN_HALTFLAG:
++        *value = p->hydraul.Haltflag;
+         break;
+     case EN_NEXTEVENT:
+         *value = time->Hstep; // find the lesser of the hydraulic time step length,

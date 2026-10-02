@@ -1,0 +1,29 @@
+[TITLE]
+CRASH-05: the report asks for heads with 12 decimal places
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   700   150
+ J2   710   100
+
+[RESERVOIRS]
+;ID   Head
+ R1   800
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    12    100    0      Open
+
+[TIMES]
+ Duration  0
+
+[REPORT]
+ Nodes     All
+ Demand    No
+ Head      Precision 12     ;heads of about 800 ft then need 16 characters
+
+[OPTIONS]
+ Units     GPM
+
+[END]

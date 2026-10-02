@@ -1,0 +1,49 @@
+API-20: do not expose solver scratch values before a run
+
+EN_setnodevalue(EN_EMITTER) set the node's emitter flow to 1 cfs, a
+starting value for the solver (added for issue #795), so EN_EMITTERFLOW
+read 448.83 gpm before any run. Seed it only while the solver is open;
+inithyd() seeds every emitter at the start of a run anyway. Tank heads
+were 0 until EN_initH, so EN_TANKVOLUME, EN_HEAD and EN_PRESSURE of a
+tank read nonsense before a run. Set a tank's head to its initial head
+when the network is loaded and in EN_settankdata, as EN_TANKLEVEL does.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-20_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..720f457 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2557,7 +2557,10 @@ int DLLEXPORT EN_setnodevalue(EN_Project p, int index, int property, double valu
+             value = pow((Ucf[FLOW] / value), hyd->Qexp) / ecfTmp;
+         }
+         Node[index].Ke = value;
+-        if (hyd->EmitterFlow[index] == 0.0) hyd->EmitterFlow[index] = 1.0;
++        // A new emitter needs a starting flow if the solver is running
++        // (inithyd() gives every emitter one at the start of a run)
++        if (hyd->OpenHflag && hyd->EmitterFlow[index] == 0.0)
++            hyd->EmitterFlow[index] = 1.0;
+         break;
+ 
+     case EN_INITQUAL:
+@@ -2935,6 +2938,7 @@ int DLLEXPORT EN_settankdata(EN_Project p, int index, double elev,
+     net->Node[Tank[j].Node].El = elev / Ucf[ELEV];
+     Tank[j].A = area / Ucf[ELEV] / Ucf[ELEV];
+     Tank[j].H0 = (elev + initlvl) / Ucf[ELEV];
++    p->hydraul.NodeHead[index] = Tank[j].H0;   // head before a run
+     Tank[j].Hmin = (elev + minlvl) / Ucf[ELEV];
+     Tank[j].Hmax = (elev + maxlvl) / Ucf[ELEV];
+     Tank[j].Vcurve = curveIndex;
+diff --git a/src/input1.c b/src/input1.c
+index bb1db45..bc87876 100644
+--- a/src/input1.c
++++ b/src/input1.c
+@@ -567,6 +567,7 @@ void convertunits(Project *pr)
+         tank->Kb /= SECperDAY;
+         tank->V = tank->V0;
+         tank->C = node->C0;
++        hyd->NodeHead[i] = tank->H0;    // head before a run
+     }
+ 
+     // Convert hydraulic convergence criteria

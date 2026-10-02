@@ -1,0 +1,25 @@
+CRASH-27: terminate rule labels copied with strncpy
+
+newrule() copies a rule's label with strncpy(label, Tok[1], MAXID),
+which writes no terminating zero for a label of MAXID (31) characters
+or more. EN_addrule adds the Rule entry with realloc, so label[MAXID]
+held whatever was in memory, and EN_getruleID copied more than
+MAXID + 1 bytes into the caller's buffer. newrule() now writes the
+terminator itself, so a long label is cut to 31 characters, as it
+already was when read from an input file.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-27_fix.patch
+
+diff --git a/src/rules.c b/src/rules.c
+index 1b009ad..7728ef0 100644
+--- a/src/rules.c
++++ b/src/rules.c
+@@ -702,6 +702,7 @@ void newrule(Project *pr)
+     rule->ElseActions = NULL;
+     rule->priority = 0.0;
+     rule->isEnabled = TRUE;
++    rule->label[MAXID] = '\0';  // strncpy() above may not terminate it
+     pr->rules.LastPremise = NULL;
+     pr->rules.LastThenAction = NULL;
+     pr->rules.LastElseAction = NULL;

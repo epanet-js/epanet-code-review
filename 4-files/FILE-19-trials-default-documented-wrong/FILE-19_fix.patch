@@ -1,0 +1,24 @@
+FILE-19: document the TRIALS default as 200, the value the code uses
+
+The input file reference says the default for TRIALS is 40. The code
+has used 200 (MAXITER in input1.c) since EPANET 2.00.12, where the
+source marks the value as a 2.00.12 change, and the input file appendix
+of the EPANET 2.2 Users Manual also gives 200. Correct the
+documentation.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-19_fix.patch
+
+diff --git a/doc/toolkit-input.dox b/doc/toolkit-input.dox
+index 93031c9..b759a6c 100644
+--- a/doc/toolkit-input.dox
++++ b/doc/toolkit-input.dox
+@@ -354,7 +354,7 @@ The \b HYDRAULICS option allows you to either <B>SAVE</B> the current hydraulics
+ 
+ \b SPECIFIC GRAVITY is the ratio of the density of the fluid being modeled to that of water at 4 deg. C (unitless). The default value is 1.0.
+ 
+-\b TRIALS are the maximum number of trials used to solve network hydraulics at each hydraulic time step of a simulation. The default is 40.
++\b TRIALS are the maximum number of trials used to solve network hydraulics at each hydraulic time step of a simulation. The default is 200.
+ 
+ \b ACCURACY prescribes the convergence criterion that determines when a hydraulic solution has been reached. The trials end when the sum of all flow changes from the previous solution divided by the total flow in all links is less than this number. The default is 0.001.
+ 

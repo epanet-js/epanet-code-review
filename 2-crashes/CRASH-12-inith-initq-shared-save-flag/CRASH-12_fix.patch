@@ -1,0 +1,95 @@
+CRASH-12: give the output file its own save flag
+
+EN_initH and EN_initQ both set outfile.Saveflag. When the two solvers
+are stepped together, whichever is initialised last decides whether
+hydraulics are written to the hydraulics file. EN_initH(EN_NOSAVE)
+followed by EN_initQ(EN_SAVE) made nexthyd() write to a hydraulics file
+that was never opened (a crash); EN_initH(EN_SAVE) followed by
+EN_initQ(EN_NOSAVE) saved no hydraulics. Keep Saveflag for the
+hydraulics file and add OutSaveflag, set by EN_initQ, for the output
+file.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-12_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..e919664 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -757,11 +757,11 @@ int DLLEXPORT EN_initQ(EN_Project p, int saveFlag)
+     if (!p->quality.OpenQflag) return 105;
+     initqual(p);
+     p->outfile.SaveQflag = FALSE;
+-    p->outfile.Saveflag = FALSE;
++    p->outfile.OutSaveflag = FALSE;
+     if (saveFlag)
+     {
+         errcode = openoutfile(p);
+-        if (!errcode) p->outfile.Saveflag = TRUE;
++        if (!errcode) p->outfile.OutSaveflag = TRUE;
+     }
+     return errcode;
+ }
+@@ -800,7 +800,7 @@ int DLLEXPORT EN_nextQ(EN_Project p, long *tStep)
+     *tStep = 0;
+     if (!p->quality.OpenQflag) return 105;
+     errcode = nextqual(p, tStep);
+-    if (!errcode && p->outfile.Saveflag && *tStep == 0)
++    if (!errcode && p->outfile.OutSaveflag && *tStep == 0)
+     {
+         p->outfile.SaveQflag = TRUE;
+     }
+@@ -823,7 +823,7 @@ int DLLEXPORT EN_stepQ(EN_Project p, long *timeLeft)
+     *timeLeft = 0;
+     if (!p->quality.OpenQflag) return 105;
+     errcode = stepqual(p, timeLeft);
+-    if (!errcode && p->outfile.Saveflag && *timeLeft == 0)
++    if (!errcode && p->outfile.OutSaveflag && *timeLeft == 0)
+     {
+         p->outfile.SaveQflag = TRUE;
+     }
+diff --git a/src/quality.c b/src/quality.c
+index 36c89b9..9a0f5ee 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -225,7 +225,7 @@ int runqual(Project *pr, long *t)
+         // Save current results to output file
+         if (time->Htime >= time->Rtime)
+         {
+-            if (pr->outfile.Saveflag)
++            if (pr->outfile.OutSaveflag)
+             {
+                 errcode = saveoutput(pr);
+                 pr->report.Nperiods++;
+@@ -306,7 +306,7 @@ int nextqual(Project *pr, long *tstep)
+         }
+ 
+         // ... write the final portion of the binary output file
+-        if (pr->outfile.Saveflag) errcode = savefinaloutput(pr);
++        if (pr->outfile.OutSaveflag) errcode = savefinaloutput(pr);
+     }
+     return errcode;
+ }
+@@ -385,7 +385,7 @@ int stepqual(Project *pr, long *tleft)
+         }
+ 
+         // ... write the final portion of the binary output file
+-        if (pr->outfile.Saveflag) errcode = savefinaloutput(pr);
++        if (pr->outfile.OutSaveflag) errcode = savefinaloutput(pr);
+     }
+     return errcode;
+ }
+diff --git a/src/types.h b/src/types.h
+index b35c5cd..6869f41 100755
+--- a/src/types.h
++++ b/src/types.h
+@@ -688,7 +688,8 @@ typedef struct {
+     Hydflag,               // Hydraulics flag
+     SaveHflag,             // Hydraulic results saved flag
+     SaveQflag,             // Quality results saved flag
+-    Saveflag;              // General purpose save flag
++    Saveflag,              // Hydraulics file save flag
++    OutSaveflag;           // Output file save flag
+ 
+   long
+     HydOffset,             // Hydraulics file byte offset

@@ -1,0 +1,25 @@
+SIM-14: use the same PDA pressure range in every demand calculation
+
+newdemandflows() clamped Preq - Pmin to at least MINPDIFF, which is 0.1
+in user pressure units but was applied in feet. demandcoeffs() and
+pdaconverged() use the raw difference. With kPa units and a range of
+0.1 to 0.3 kPa the demand update and the matrix followed different
+curves and the solver did not converge. Input validation already keeps
+the range at MINPDIFF user units or more, so drop the clamp.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-14_fix.patch
+
+diff --git a/src/hydsolver.c b/src/hydsolver.c
+index e5969bc..ac469f5 100644
+--- a/src/hydsolver.c
++++ b/src/hydsolver.c
+@@ -579,7 +579,7 @@ void newdemandflows(Project *pr, Hydbalance *hbal, double *qsum, double *dqsum)
+     
+     // Get demand function parameters
+     if (hyd->DemandModel == DDA) return;
+-    dp = MAX((hyd->Preq - hyd->Pmin), MINPDIFF);
++    dp = hyd->Preq - hyd->Pmin;
+     n = 1.0 / hyd->Pexp;
+ 
+     // Examine each junction

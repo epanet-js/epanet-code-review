@@ -1,0 +1,31 @@
+FILE-10: reject nan, inf, hex and empty tokens in getfloat
+
+getfloat() accepted anything strtod() could parse, which includes "nan",
+"inf", "infinity" and hexadecimal numbers such as "0x64", and its test
+for characters left after the number, *endptr > 0, was false for an
+empty token and, where char is signed, for a trailing byte above 127.
+NaN then passed every range check, because those are ordered
+comparisons. getfloat() now requires the whole token to be read, and
+rejects hexadecimal forms and results that are not finite (which also
+catches values that overflow, such as 1e999). The locale handling is
+unchanged.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-10_fix.patch
+
+diff --git a/src/input2.c b/src/input2.c
+index 220c757..8e010e3 100644
+--- a/src/input2.c
++++ b/src/input2.c
+@@ -718,7 +718,10 @@ int getfloat(char *s, double *y)
+         freelocale(locale);
+     }    
+ 
+-    if (*endptr > 0) return 0;
++    // Reject an empty token, characters after the number, and the
++    // hexadecimal, infinity and NaN forms that strtod also accepts
++    if (endptr == s || *endptr != '\0') return 0;
++    if (strpbrk(s, "xX") != NULL || !isfinite(*y)) return 0;
+     return 1;
+ }
+ 

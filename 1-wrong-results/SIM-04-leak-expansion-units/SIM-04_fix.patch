@@ -1,0 +1,38 @@
+SIM-04: document leak expansion as sq mm per metre of head
+
+leakage.c reads the [LEAKAGE] expansion rate (EN_LEAK_EXPAN) as sq mm
+per metre of pressure head in both unit systems, the design stated in
+issue #899 and implemented by PR #901. The [LEAKAGE] page and the enum
+comment say per unit of head (ft or m), so a US user who follows them
+gets 0.3048 times the intended variable-area leakage. Correct the two
+documentation strings; the code does not change.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-04_fix.patch
+
+diff --git a/doc/toolkit-input.dox b/doc/toolkit-input.dox
+index 93031c9..6f2c208 100644
+--- a/doc/toolkit-input.dox
++++ b/doc/toolkit-input.dox
+@@ -249,7 +249,7 @@ __Format:__
+ A line for each pipe subject to leaking that contains:
+ - Pipe ID label
+ - the average combined area of leakage-generating cracks per 100 units of pipe length (in ft or m). This area is expressed in units of square mm regardless of the choice of model flow units.
+-- the expansion in the average combined area of leakage-generating cracks as a function of the pressure head (in ft or m). This is the derivative of the area with respect to the pressure head, and is expressed in units of sq. mm per unit of modeled pressure head (in ft or m)
++- the expansion in the average combined area of leakage-generating cracks as a function of the pressure head, per 100 units of pipe length (in ft or m). This is the derivative of the area with respect to the pressure head, and is expressed in units of sq. mm per m of pressure head regardless of the choice of model flow units.
+ 
+ __Remarks__
+ 1. This section is optional.
+diff --git a/include/epanet2_enums.h b/include/epanet2_enums.h
+index 2da2e68..8ad83c7 100644
+--- a/include/epanet2_enums.h
++++ b/include/epanet2_enums.h
+@@ -102,7 +102,7 @@ typedef enum {
+   EN_GPV_CURVE    = 24, //!< GPV head loss v. flow curve index
+   EN_PCV_CURVE    = 25, //!< PCV characteristic curve index
+   EN_LEAK_AREA    = 26, //!< Pipe leak area (sq mm per 100 length units)
+-  EN_LEAK_EXPAN   = 27, //!< Leak expansion rate (sq mm per unit of pressure head)
++  EN_LEAK_EXPAN   = 27, //!< Leak expansion rate (sq mm per m of pressure head per 100 length units)
+   EN_LINK_LEAKAGE = 28, //!< Current leakage rate (read only)
+   EN_VALVE_TYPE   = 29  //!< Type of valve (see @ref EN_LinkType)
+ } EN_LinkProperty;

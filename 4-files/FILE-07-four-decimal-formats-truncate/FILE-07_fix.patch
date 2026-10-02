@@ -1,0 +1,79 @@
+FILE-07: write small input values with significant digits, not 4 decimals
+
+saveinpfile() writes pipe roughness, valve settings, pattern factors,
+curve points and control settings and levels with %.4f, so any value
+below 0.00005 is saved as 0 and values below 0.01 lose digits: a pump
+curve flow of 0.00045 m3/s comes back as 0.0004. Use %.10g for these
+values. It keeps 10 significant digits, so it never keeps fewer digits
+than %.4f for values below 1e6, and it drops the trailing zeros that
+%.4f added. Other fields keep their formats.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-07_fix.patch
+
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..9db4075 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -218,7 +218,7 @@ int saveinpfile(Project *pr, const char *fname)
+             if (hyd->Formflag == DW)  kc = kc * pr->Ucf[ELEV] * 1000.0;
+             km = link->Km * SQR(d) * SQR(d) / 0.02517;
+ 
+-            sprintf(s, " %-31s\t%-31s\t%-31s\t%-12.4f\t%-12.4f\t%-12.4f\t%-12.4f",
++            sprintf(s, " %-31s\t%-31s\t%-31s\t%-12.4f\t%-12.4f\t%-12.10g\t%-12.4f",
+                     link->ID, net->Node[link->N1].ID, net->Node[link->N2].ID,
+                     link->Len * pr->Ucf[LENGTH], d * pr->Ucf[DIAM], kc, km);
+ 
+@@ -322,9 +322,9 @@ int saveinpfile(Project *pr, const char *fname)
+         // For PCV add loss curve if present
+         else if (link->Type == PCV && (j = net->Valve[i].Curve) > 0)
+         {
+-            sprintf(s1, "%-12.4f\t%-12.4f\t%-31s", kc, km, net->Curve[j].ID);
++            sprintf(s1, "%-12.10g\t%-12.4f\t%-31s", kc, km, net->Curve[j].ID);
+         }
+-        else sprintf(s1, "%-12.4f\t%-12.4f", kc, km);
++        else sprintf(s1, "%-12.10g\t%-12.4f", kc, km);
+         fprintf(f, "\n%s\t%s", s, s1);
+         if (link->Comment) fprintf(f, "\t;%s", link->Comment);
+     }
+@@ -432,7 +432,7 @@ int saveinpfile(Project *pr, const char *fname)
+         for (j = 0; j < net->Pattern[i].Length; j++)
+         {
+             if (j % 6 == 0) fprintf(f, "\n %-31s", net->Pattern[i].ID);
+-            fprintf(f, "\t%-12.4f", net->Pattern[i].F[j]);
++            fprintf(f, "\t%-12.10g", net->Pattern[i].F[j]);
+         }
+     }
+ 
+@@ -446,11 +446,11 @@ int saveinpfile(Project *pr, const char *fname)
+         if (curve->Comment) fprintf(f, "\n;%s", curve->Comment);
+         if (curve->Npts > 0)
+         {
+-            fprintf(f, "\n %-31s\t%-12.4f\t%-12.4f\t%s", curve->ID,
++            fprintf(f, "\n %-31s\t%-12.10g\t%-12.10g\t%s", curve->ID,
+                 curve->X[0], curve->Y[0], CurveTypeTxt[curve->Type]);
+             for (j = 1; j < curve->Npts; j++)
+             {
+-                fprintf(f, "\n %-31s\t%-12.4f\t%-12.4f", curve->ID,
++                fprintf(f, "\n %-31s\t%-12.10g\t%-12.10g", curve->ID,
+                     curve->X[j], curve->Y[j]);
+             }
+         }
+@@ -492,7 +492,7 @@ int saveinpfile(Project *pr, const char *fname)
+               default:
+                 break;
+             }
+-            sprintf(s, " LINK %s %.4f", link->ID, kc);
++            sprintf(s, " LINK %s %.10g", link->ID, kc);
+         }
+ 
+         switch (control->Type)
+@@ -505,7 +505,7 @@ int saveinpfile(Project *pr, const char *fname)
+             kc = control->Grade - node->El;
+             if (n > net->Njuncs) kc *= pr->Ucf[HEAD];
+             else kc *= pr->Ucf[PRESSURE];
+-            fprintf(f, "\n%s IF NODE %s %s %.4f", s, node->ID,
++            fprintf(f, "\n%s IF NODE %s %s %.10g", s, node->ID,
+                     ControlTxt[control->Type], kc);
+             break;
+ 

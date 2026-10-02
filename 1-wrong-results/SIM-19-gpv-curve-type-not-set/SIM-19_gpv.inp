@@ -1,0 +1,36 @@
+[TITLE]
+SIM-19: reservoir R1 feeds J2 (100 gpm) through pipe P1 and GPV V1
+V1 uses head loss curve C1 in the file. The test switches it to C2 through the toolkit.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     0
+ J2   0     100
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting
+ V1  J1  J2  12    GPV   C1
+
+[CURVES]
+;ID  Flow (gpm)  HeadLoss (ft)
+ C1  0           0
+ C1  1000        10
+ C2  0           0        ; 2 ft at 100 gpm
+ C2  1000        20
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

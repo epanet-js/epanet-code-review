@@ -1,0 +1,25 @@
+[TITLE]
+CRASH-21: junction J1 has two demand categories
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     0       ; replaced by the [DEMANDS] entries below
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+
+[DEMANDS]
+;Junction  Demand  ;Category
+ J1        100     ;Domestic
+ J1        50      ;Industrial
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

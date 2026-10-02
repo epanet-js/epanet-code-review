@@ -1,0 +1,50 @@
+CRASH-15: check badIndex for NULL before storing the failing index
+
+EN_setnodevalues and EN_setlinkvalues allow a NULL badIndex (both start
+with "if (badIndex) *badIndex = 0;"), but the error paths stored the
+failing index through it without a check, so any failed assignment
+crashed the caller. Guard the four stores the same way.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-15_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..e3481bb 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2804,7 +2804,7 @@ int DLLEXPORT EN_setnodevalues(EN_Project p, int property, double *values, int *
+         errcode = EN_getnodevalue(p, i, property, &old[i - 1]);
+         if (errcode != 0)
+         {
+-            *badIndex = i;
++            if (badIndex) *badIndex = i;
+             j = i - 1;        // Need to restore values for nodes 1 to i-1
+         }
+         else
+@@ -2812,7 +2812,7 @@ int DLLEXPORT EN_setnodevalues(EN_Project p, int property, double *values, int *
+             errcode = EN_setnodevalue(p, i, property, values[i - 1]);
+             if (errcode != 0)
+             {
+-                *badIndex = i;
++                if (badIndex) *badIndex = i;
+                 j = i;        // Need to restore values for nodes 1 to i
+             }
+         }
+@@ -4417,7 +4417,7 @@ int DLLEXPORT EN_setlinkvalues(EN_Project p, int property, double *values, int *
+         errcode = EN_getlinkvalue(p, i, property, &old[i - 1]);
+         if (errcode != 0)
+         {
+-            *badIndex = i;
++            if (badIndex) *badIndex = i;
+             j = i - 1;        // Need to restore values for links 1 to i-1
+         }
+         else
+@@ -4425,7 +4425,7 @@ int DLLEXPORT EN_setlinkvalues(EN_Project p, int property, double *values, int *
+             errcode = EN_setlinkvalue(p, i, property, values[i - 1]);
+             if (errcode != 0)
+             {
+-                *badIndex = i;
++                if (badIndex) *badIndex = i;
+                 j = i;        // Need to restore values for links 1 to i
+             }
+         }

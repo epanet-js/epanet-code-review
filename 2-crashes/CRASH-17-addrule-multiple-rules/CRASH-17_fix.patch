@@ -1,0 +1,45 @@
+CRASH-17: reject a second RULE clause in EN_addrule
+
+EN_addrule grows the Rule array by one entry, but ruledata() increments
+Nrules and starts a new rule at every RULE clause, so a string with two
+rules wrote past the end of the array. EN_addrule now records the rule
+count on entry and returns 250 (invalid format) when a RULE clause
+arrives after its rule has been started. The partly built rule is
+deleted as for any other error.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-17_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..d9b0835 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -5631,6 +5631,7 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+     Parser  *parser = &p->parser;
+     Rules   *rules = &p->rules;
+ 
++    int  nrules;      // number of rules before this one is added
+     char *line;
+     char *nextline;
+     char line2[MAXLINE+1];
+@@ -5639,6 +5640,7 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+     net->Rule = (Srule *)realloc(net->Rule, (net->Nrules + 2)*sizeof(Srule));
+     rules->Errcode = 0;
+     rules->RuleState = 6;  // = r_PRIORITY
++    nrules = net->Nrules;
+ 
+     // Extract each line of the rule statement
+     line = rule;
+@@ -5656,6 +5658,12 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+         // Process the line to build up the rule's contents
+         if (parser->Ntokens > 0 && *parser->Tok[0] != ';')
+         {
++            // Only one rule can be added at a time
++            if (net->Nrules > nrules && match(parser->Tok[0], w_RULE))
++            {
++                rules->Errcode = 250;
++                break;
++            }
+             ruledata(p);  // Nrules gets updated in ruledata()
+             if (rules->Errcode) break;
+         }

@@ -1,0 +1,58 @@
+SIM-17: update tank volumes after EN_MINLEVEL and volume-curve edits
+
+A cylindrical tank's volume is Vmin + (h - Hmin) * A. Setting
+EN_MINLEVEL changed Hmin but not V0 and Vmax, so the run started from
+a volume that does not match the initial level and the level jumped on
+the first step. EN_setcurve and EN_setcurvevalue changed a volume curve
+without updating Vmin, V0 and Vmax of the tanks that use it. Recompute
+these volumes, as EN_TANKDIAM, EN_MINVOLUME and EN_VOLCURVE already do.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-17_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..1c5f188 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2718,6 +2718,8 @@ int DLLEXPORT EN_setnodevalue(EN_Project p, int index, int property, double valu
+         // NOTE: We assume that for non-volume curve tanks Vmin doesn't change
+         //       with Hmin. If not the case then a subsequent call setting
+         //       EN_MINVOLUME must be made.
++        Tank[j].V0 = tankvolume(p, j, Tank[j].H0);     // new init. volume
++        Tank[j].Vmax = tankvolume(p, j, Tank[j].Hmax); // new max. volume
+         break;
+ 
+     case EN_MAXLEVEL:
+@@ -5301,6 +5303,16 @@ int DLLEXPORT EN_setcurvevalue(EN_Project p, int curveIndex, int pointIndex,
+     // Insert new point into curve
+     curve->X[n] = x;
+     curve->Y[n] = y;
++
++    // Update the volumes of any tank that uses the curve
++    // (n is reused as the tank index)
++    for (n = 1; n <= net->Ntanks; n++)
++    {
++        if (net->Tank[n].Vcurve != curveIndex) continue;
++        net->Tank[n].Vmin = tankvolume(p, n, net->Tank[n].Hmin);
++        net->Tank[n].V0 = tankvolume(p, n, net->Tank[n].H0);
++        net->Tank[n].Vmax = tankvolume(p, n, net->Tank[n].Hmax);
++    }
+     return 0;
+ }
+ 
+@@ -5373,6 +5385,15 @@ int DLLEXPORT EN_setcurve(EN_Project p, int index, double *xValues,
+         curve->X[j] = xValues[j];
+         curve->Y[j] = yValues[j];
+     }
++
++    // Update the volumes of any tank that uses the curve
++    for (j = 1; j <= net->Ntanks; j++)
++    {
++        if (net->Tank[j].Vcurve != index) continue;
++        net->Tank[j].Vmin = tankvolume(p, j, net->Tank[j].Hmin);
++        net->Tank[j].V0 = tankvolume(p, j, net->Tank[j].H0);
++        net->Tank[j].Vmax = tankvolume(p, j, net->Tank[j].Hmax);
++    }
+     return 0;
+ }
+ 

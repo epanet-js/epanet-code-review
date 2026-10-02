@@ -1,0 +1,50 @@
+CRASH-04: range-check [TIMES] and integer [OPTIONS] values
+
+timedata() converted every time to seconds with (long)(3600*y + 0.5) and
+optionvalue() stored TRIALS, CHECKFREQ and MAXCHECK with (int)y, with no
+check that the value fits. getfloat() accepts 1e300, inf and nan, so
+these conversions were undefined behaviour (a saturated or LONG_MIN
+value in practice). Times must now be at least 0 and below half the
+range of a long, which leaves room to add two times without overflow,
+and the three integer options must not exceed INT_MAX. Both tests are
+written so that NaN fails them. Failures give error 213.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-04_fix.patch
+
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..581fdc9 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -15,6 +15,7 @@ Last Updated: 04/19/2025
+ #include <stdio.h>
+ #include <string.h>
+ #include <math.h>
++#include <limits.h>
+ 
+ #include "types.h"
+ #include "funcs.h"
+@@ -1831,6 +1832,11 @@ int timedata(Project *pr)
+             }
+         }
+     }
++
++    // Reject a time that is negative, too large or not a number: its
++    // number of seconds must fit in half the range of a long, so that
++    // two times can be added without overflow
++    if (!(y >= 0.0 && y < LONG_MAX / 7200.0)) return setError(parser, n, 213);
+     t = (long)(3600.0 * y + 0.5);
+ 
+     /// Process the value assigned to the matched parameter
+@@ -2161,6 +2167,11 @@ int optionvalue(Project *pr, int n)
+     // All other options must be > 0
+     if (y <= 0.0) return setError(parser, nvalue, 213);
+ 
++    // Options stored as integers must fit in an int (NaN fails this test)
++    if ((match(tok0, w_TRIALS) || match(tok0, w_CHECKFREQ) ||
++         match(tok0, w_MAXCHECK)) && !(y <= INT_MAX))
++        return setError(parser, nvalue, 213);
++
+     // Assign value to all other options
+     if (match(tok0, w_VISCOSITY))     hyd->Viscos = y;
+     else if (match(tok0, w_SPECGRAV)) hyd->SpGrav = y;

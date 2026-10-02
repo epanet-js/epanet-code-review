@@ -1,0 +1,43 @@
+CRASH-10: free the adjacency lists only when both solvers are closed
+
+The hydraulic and water quality solvers share net->Adjlist: openqual()
+reuses the lists when the hydraulic solver has built them. Since the fix
+for #789, closehyd() and closequal() both free the lists, so closing one
+solver leaves the other with a NULL list array. EN_runQ then crashes in
+sortnodes(), and EN_runH crashes in marknodes() on its first warning.
+Free the lists in each close function only when the other solver is not
+open. The last solver to close still frees them, as #789 requires.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-10_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..1bcfc51 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -309,7 +309,9 @@ void  closehyd(Project *pr)
+ {
+     freesparse(pr);
+     freematrix(pr);
+-    freeadjlists(&pr->network);
++
++    // Keep the adjacency lists if the quality solver is still using them
++    if (!pr->quality.OpenQflag) freeadjlists(&pr->network);
+ }
+ 
+ 
+diff --git a/src/quality.c b/src/quality.c
+index 36c89b9..fe7bca2 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -412,7 +412,9 @@ int closequal(Project *pr)
+         FREE(qual->FlowDir);
+         FREE(qual->SortedNodes);
+     }
+-    freeadjlists(&pr->network);
++
++    // Keep the adjacency lists if the hydraulic solver is still using them
++    if (!pr->hydraul.OpenHflag) freeadjlists(&pr->network);
+     return errcode;
+ }
+ 

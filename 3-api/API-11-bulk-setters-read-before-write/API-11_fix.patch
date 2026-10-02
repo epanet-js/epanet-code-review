@@ -1,0 +1,96 @@
+API-11: let the bulk setters skip unchanged values and missing sources
+
+EN_setnodevalues aborted at node 1 for every tank-only property (a
+junction is not a tank) and every source property (node 1 has no source
+to read), so these could never be bulk-set. Assign only the values that
+change, so the entries EN_getnodevalues returns for nodes a property
+does not apply to are left alone; treat a node without a source as
+having none, give it one only for a non-zero value, and remove it again
+on rollback. EN_setlinkvalues gets the same unchanged-value rule.
+
+Requires: CRASH-15
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-15:
+    git apply API-11_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index e3481bb..9811237 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2799,15 +2799,28 @@ int DLLEXPORT EN_setnodevalues(EN_Project p, int property, double *values, int *
+     old = (double *)malloc(n * sizeof(double));
+     if (!old) return 101; /* insufficient memory available */
+ 
++    // Only values that change are assigned. This leaves alone the nodes
++    // that a property does not apply to (given the values that
++    // EN_getnodevalues returns for them) and avoids needless side effects.
+     for (i = 1; i <= n; i++)
+     {
+         errcode = EN_getnodevalue(p, i, property, &old[i - 1]);
++
++        // A node without a quality source has no source value to save
++        // (error 240). Mark it as MISSING; it only gets a source if its
++        // new value is not 0.
++        if (errcode == 240)
++        {
++            errcode = 0;
++            old[i - 1] = MISSING;
++            if (values[i - 1] == 0.0) continue;
++        }
+         if (errcode != 0)
+         {
+             if (badIndex) *badIndex = i;
+             j = i - 1;        // Need to restore values for nodes 1 to i-1
+         }
+-        else
++        else if (values[i - 1] != old[i - 1])
+         {
+             errcode = EN_setnodevalue(p, i, property, values[i - 1]);
+             if (errcode != 0)
+@@ -2820,7 +2833,16 @@ int DLLEXPORT EN_setnodevalues(EN_Project p, int property, double *values, int *
+         {
+             for (k = 1; k <= j; k++)
+             {
+-                EN_setnodevalue(p, k, property, old[k - 1]);
++                if (old[k - 1] == MISSING)
++                {
++                    // Remove any source created by this call
++                    free(p->network.Node[k].S);
++                    p->network.Node[k].S = NULL;
++                }
++                else if (values[k - 1] != old[k - 1])
++                {
++                    EN_setnodevalue(p, k, property, old[k - 1]);
++                }
+             }
+             break;
+         }
+@@ -4412,6 +4434,7 @@ int DLLEXPORT EN_setlinkvalues(EN_Project p, int property, double *values, int *
+     old = (double *)malloc(n * sizeof(double));
+     if (!old) return 101; /* insufficient memory available */
+ 
++    // Only values that change are assigned
+     for (i = 1; i <= n; i++)
+     {
+         errcode = EN_getlinkvalue(p, i, property, &old[i - 1]);
+@@ -4420,7 +4443,7 @@ int DLLEXPORT EN_setlinkvalues(EN_Project p, int property, double *values, int *
+             if (badIndex) *badIndex = i;
+             j = i - 1;        // Need to restore values for links 1 to i-1
+         }
+-        else
++        else if (values[i - 1] != old[i - 1])
+         {
+             errcode = EN_setlinkvalue(p, i, property, values[i - 1]);
+             if (errcode != 0)
+@@ -4433,7 +4456,10 @@ int DLLEXPORT EN_setlinkvalues(EN_Project p, int property, double *values, int *
+         {
+             for (k = 1; k <= j; k++)
+             {
+-                EN_setlinkvalue(p, k, property, old[k - 1]);
++                if (values[k - 1] != old[k - 1])
++                {
++                    EN_setlinkvalue(p, k, property, old[k - 1]);
++                }
+             }
+             break;
+         }

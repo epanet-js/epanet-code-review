@@ -1,0 +1,53 @@
+[TITLE]
+SIM-02: three empty tanks, each behind a different valve type (GPV, PBV, TCV)
+Each tank is at its minimum level, so its valve must be closed. Reservoir R1, R2 or R3
+then supplies the 200 gpm demand at J1, J2 or J3 on its own.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     200
+ J2   0     200
+ J3   0     200
+
+[RESERVOIRS]
+;ID   Head
+ R1   50
+ R2   50
+ R3   50
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  100   0          0         20        50        0       ; empty
+ T2  100   0          0         20        50        0       ; empty
+ T3  100   0          0         20        50        0       ; empty
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  R2  J2  1000    12    100    0      Open
+ P3  R3  J3  1000    12    100    0      Open
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting  Mloss
+ V1  T1  J1  12    GPV   C1       0     ; head loss curve C1
+ V2  T2  J2  12    PBV   5        0     ; 5 ft pressure drop
+ V3  T3  J3  12    TCV   0        0     ; for comparison: handled correctly
+
+[CURVES]
+;ID  Flow  HeadLoss
+ C1  0     0
+ C1  200   5
+ C1  2000  50
+
+[TIMES]
+ Duration  0
+
+[REPORT]
+ Status  Full
+ Summary No
+
+[OPTIONS]
+ Units    GPM
+ Headloss H-W
+
+[END]

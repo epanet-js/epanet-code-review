@@ -1,0 +1,33 @@
+CRASH-09: size the rule value buffers for any number
+
+writepremise() and writeaction() format a rule's value with "%.4f" into
+char s_value[20]. Any value of 1e15 or more (or -1e14 or less) needs 21
+characters or more, so EN_saveinpfile overflowed the stack. The buffers
+now hold MAXLINE + 1 characters, enough for "%.4f" of any double (at
+most 315 characters), so the value is written in full.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-09_fix.patch
+
+diff --git a/src/rules.c b/src/rules.c
+index 1b009ad..a5e6fa3 100644
+--- a/src/rules.c
++++ b/src/rules.c
+@@ -1382,7 +1382,7 @@ void writepremise(Spremise *p, FILE *f, Network *net)
+ {
+     char s_obj[20];
+     char s_id[MAXID + 1];
+-    char s_value[20];
++    char s_value[MAXLINE + 1];  // fits "%.4f" of any double
+     int  subtype;
+ 
+     // Get the type name & ID of object referred to in the premise
+@@ -1436,7 +1436,7 @@ void writeaction(Saction *a, FILE *f, Network *net)
+     char s_id[MAXID + 1];
+     char s_obj[20];
+     char s_var[20];
+-    char s_value[20];
++    char s_value[MAXLINE + 1];  // fits "%.4f" of any double
+     int subtype;
+ 
+     subtype = net->Link[a->link].Type;

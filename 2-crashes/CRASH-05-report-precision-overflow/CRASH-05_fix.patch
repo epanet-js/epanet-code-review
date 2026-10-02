@@ -1,0 +1,28 @@
+CRASH-05: limit report precision to the 6 decimals the tables can hold
+
+writenodetable() and writelinktable() format each value with
+sprintf(s1, "%10.*f", Precision, y) into char s1[16]. Values up to 1e6
+are printed this way, so 6 decimals is the most that fits: -1000000.000000
+is 15 characters. reportdata() accepted any PRECISION, from the input file
+or EN_setreport, so PRECISION 7 or more could overflow s1 (12 does for any
+value of 100 or more). Clamp the value to 0..6 where it is read. Values in
+the report come from 4-byte floats, so more decimals would only show noise.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-05_fix.patch
+
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..06ca985 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -1751,6 +1751,10 @@ int reportdata(Project *pr)
+         if (!getfloat(parser->Tok[2], &y)) return setError(parser, 2, 202);
+         if (j == PREC)
+         {
++            // Report tables print values into a 16-byte buffer,
++            // which holds at most 6 decimal places (see report.c)
++            y = MAX(y, 0.0);
++            y = MIN(y, 6.0);
+             rpt->Field[i].Enabled = TRUE;
+             rpt->Field[i].Precision = ROUND(y);
+         }

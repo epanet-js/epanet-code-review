@@ -1,0 +1,25 @@
+API-14: range-check a link status before converting it to char
+
+EN_setlinkvalue(EN_INITSTATUS or EN_STATUS) rounded the value and cast
+it to char before checking that it is 0 or 1. Values such as 256 and
+257 wrapped to 0 and 1 and were accepted, so 256 closed the link with
+return code 0. Check the value itself, before the conversion.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-14_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..ae62863 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4206,8 +4206,9 @@ int DLLEXPORT EN_setlinkvalue(EN_Project p, int index, int property, double valu
+         // Status 's' must be either EN_CLOSED (0) or EN_OPEN (1)
+         // (to set the status of a valve to ACTIVE, assign a value to its
+         // EN_INITSETTING or EN_SETTING property)
++        // (written so that NaN is refused too)
++        if (!(value >= 0.0 && value <= 1.0)) return 211;
+         s = (char)ROUND(value);
+-        if (s < 0 || s > 1) return 211;
+ 
+         if (property == EN_INITSTATUS)
+         {

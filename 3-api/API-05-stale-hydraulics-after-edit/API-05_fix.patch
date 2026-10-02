@@ -1,0 +1,75 @@
+API-05: clear the saved-hydraulics flag on every structural edit
+
+EN_openQ only checks outfile.SaveHflag before it reads the scratch
+hydraulics file. That file holds one record per time step, sized for
+the node and link counts at the time EN_solveH ran. After a node or
+link was added or deleted, EN_solveQ (and EN_saveH) read every record
+misaligned and returned 0. The six functions that refuse to run while
+a solver is open (error 262) now clear SaveHflag when they change the
+network, so EN_solveQ returns 104 until the hydraulics are run again.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-05_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..0b5e928 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2043,6 +2043,9 @@ int DLLEXPORT EN_addnode(EN_Project p, const char *id, int nodeType, int *index)
+     // Insert new node into hash table
+     hashtable_insert(net->NodeHashTable, node->ID, nIdx);
+     *index = nIdx;
++
++    // Saved hydraulic results no longer match the network
++    p->outfile.SaveHflag = FALSE;
+     return 0;
+ }
+ 
+@@ -2159,6 +2162,9 @@ int DLLEXPORT EN_deletenode(EN_Project p, int index, int actionCode)
+     if (nodeType == EN_JUNCTION) net->Njuncs--;
+     else net->Ntanks--;
+     net->Nnodes--;
++
++    // Saved hydraulic results no longer match the network
++    p->outfile.SaveHflag = FALSE;
+     return 0;
+ }
+ 
+@@ -3530,6 +3536,9 @@ int DLLEXPORT EN_addlink(EN_Project p, const char *id, int linkType,
+ 
+     hashtable_insert(net->LinkHashTable, link->ID, n);
+     *index = n;
++
++    // Saved hydraulic results no longer match the network
++    p->outfile.SaveHflag = FALSE;
+     return 0;
+ }
+ 
+@@ -3644,6 +3653,9 @@ int DLLEXPORT EN_deletelink(EN_Project p, int index, int actionCode)
+ 
+     // Reduce link count by one
+     net->Nlinks--;
++
++    // Saved hydraulic results no longer match the network
++    p->outfile.SaveHflag = FALSE;
+     return 0;
+ }
+ 
+@@ -3774,6 +3786,7 @@ int DLLEXPORT EN_setlinktype(EN_Project p, int *index, int linkType, int actionC
+     {
+         net->Link[i].Type = linkType;
+         if (linkType == CVPIPE) net->Link[i].InitStatus = OPEN;
++        p->outfile.SaveHflag = FALSE;
+         return 0;
+     }
+ 
+@@ -3855,6 +3868,9 @@ int DLLEXPORT EN_setlinknodes(EN_Project p, int index, int node1, int node2)
+     // Assign new end nodes to link
+     net->Link[index].N1 = node1;
+     net->Link[index].N2 = node2;
++
++    // Saved hydraulic results no longer match the network
++    p->outfile.SaveHflag = FALSE;
+     return 0;
+ }
+ 

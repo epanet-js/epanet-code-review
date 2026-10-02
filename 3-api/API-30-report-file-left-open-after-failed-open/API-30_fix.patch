@@ -1,0 +1,33 @@
+API-30: close a project in EN_deleteproject even if EN_open failed
+
+A failed EN_open leaves the report file open, with its error messages
+still in the stdio buffer, and the network data allocated, but does not
+set Openflag. EN_deleteproject called EN_close only when Openflag was
+set, so it leaked the file handle and the memory, and the report stayed
+empty until the program exited. EN_deleteproject now always calls
+EN_close. After the CRASH-14 fix EN_close can safely be called twice,
+which happens whenever a program closes a project before deleting it.
+
+Requires: CRASH-14
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-14:
+    git apply API-30_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 4b31273..bd27ab3 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -66,9 +66,10 @@ int DLLEXPORT EN_deleteproject(EN_Project p)
+ */
+ {
+     if (p == NULL) return -1;
+-    if (p->Openflag) {
+-      EN_close(p);
+-    }
++
++    // Close the project even if it is not open: a failed EN_open leaves
++    // the report file open and the network data allocated
++    EN_close(p);
+     remove(p->TmpHydFname);
+     remove(p->TmpOutFname);
+     remove(p->TmpStatFname);

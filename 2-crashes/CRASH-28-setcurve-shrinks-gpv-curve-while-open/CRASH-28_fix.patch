@@ -1,0 +1,54 @@
+CRASH-28: keep a GPV's curve at two or more points while solving
+
+validatevalves() (CRASH-16, CRASH-06) checks at EN_openH that each GPV
+has a curve with at least two points, but nothing stopped a program
+from breaking that while the solver is open: EN_setcurve could replace
+the curve with one point, and, once the solver reads Link.Kc (SIM-21),
+EN_GPV_CURVE could assign a one-point curve. curvecoeff() then read
+outside the curve's arrays on the next EN_runH. While the solver is
+open, EN_setcurve now refuses fewer than two points for a GPV's curve
+(error 202), and EN_GPV_CURVE refuses a one-point curve (error 211).
+
+Requires: CRASH-06 SIM-22
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-06,
+SIM-22 and the patches they require:
+    git apply CRASH-16_fix.patch
+    git apply CRASH-06_fix.patch
+    git apply SIM-19_fix.patch
+    git apply SIM-21_fix.patch
+    git apply SIM-17_fix.patch
+    git apply SIM-22_fix.patch
+    git apply CRASH-28_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index fe9992e..d9f0cf4 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4358,6 +4358,8 @@ int DLLEXPORT EN_setlinkvalue(EN_Project p, int index, int property, double valu
+             if (curveIndex < 0 || curveIndex > net->Ncurves) return 206;
+             // The solver uses Kc, so it must stay a valid curve while open
+             if (curveIndex == 0 && hyd->OpenHflag) return 206;
++            // ... and have at least 2 points, as EN_openH requires
++            if (hyd->OpenHflag && net->Curve[curveIndex].Npts < 2) return 211;
+             Link[index].Kc = curveIndex;
+             Link[index].InitSetting = curveIndex;
+             if (hyd->OpenHflag) hyd->LinkSetting[index] = curveIndex;
+@@ -5392,6 +5394,17 @@ int DLLEXPORT EN_setcurve(EN_Project p, int index, double *xValues,
+     if (xValues == NULL || yValues == NULL) return 206;
+     if (nPoints <= 0) return 202;
+ 
++    // A GPV's head loss curve needs at least 2 points. EN_openH checks
++    // this, so refuse to break it while the solver is open.
++    if (nPoints < 2 && p->hydraul.OpenHflag)
++    {
++        for (j = 1; j <= net->Nlinks; j++)
++        {
++            if (net->Link[j].Type == GPV && ROUND(net->Link[j].Kc) == index)
++                return 202;
++        }
++    }
++
+     // Check that x values are increasing
+     for (j = 1; j < nPoints; j++) if (xValues[j-1] >= xValues[j]) return 230;
+ 

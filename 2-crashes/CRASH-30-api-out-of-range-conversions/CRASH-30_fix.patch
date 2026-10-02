@@ -1,0 +1,82 @@
+CRASH-30: keep API values in range before converting them to integers
+
+Setters for integer-valued options and properties converted the double
+they were given with (int) or ROUND() before checking its range, which
+is undefined behaviour for NaN or values beyond the int range. ROUND()
+now saturates such values to INT_MAX or INT_MIN, which every caller's
+range check rejects. EN_setoption refuses TRIALS, UNBALANCED, CHECKFREQ
+and MAXCHECK values that do not fit in an int, EN_settimeparam refuses
+times above half the range of a long (as CRASH-04 does for input
+files), and hydsolve() no longer overflows when it adds UNBALANCED
+CONTINUE trials to a TRIALS value near INT_MAX.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-30_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..a2cdb71 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1274,6 +1274,11 @@ int DLLEXPORT EN_setoption(EN_Project p, int option, double value)
+ 
+     if (!p->Openflag) return 102;
+ 
++    // Options stored as integers must fit in an int (NaN fails this test)
++    if ((option == EN_TRIALS || option == EN_UNBALANCED ||
++         option == EN_CHECKFREQ || option == EN_MAXCHECK) &&
++        !(fabs(value) <= INT_MAX)) return 213;
++
+     // The EN_UNBALANCED option can be < 0 indicating that the simulation
+     // should be halted if no convergence is reached in EN_TRIALS. Other
+     // values set the number of additional trials to use with no more
+@@ -1653,7 +1658,10 @@ int DLLEXPORT EN_settimeparam(EN_Project p, int param, long value)
+     Times  *time = &p->times;
+ 
+     if (!p->Openflag) return 102;
+-    if (value < 0) return 213;
++
++    // Times must fit in half the range of a long, so that two of them
++    // can be added without overflow
++    if (value < 0 || value > LONG_MAX / 2) return 213;
+     switch (param)
+     {
+     case EN_DURATION:
+diff --git a/src/hydsolver.c b/src/hydsolver.c
+index e5969bc..c563829 100644
+--- a/src/hydsolver.c
++++ b/src/hydsolver.c
+@@ -109,7 +109,7 @@ int  hydsolve(Project *pr, int *iter, double *relerr)
+     // (ExtraIter used to increase trials in case of status cycling.)
+     if (rpt->Statflag == FULL) writerelerr(pr, 0, 0);
+     maxtrials = hyd->MaxIter;
+-    if (hyd->ExtraIter > 0) maxtrials += hyd->ExtraIter;
++    if (hyd->ExtraIter > 0) maxtrials += MIN(hyd->ExtraIter, INT_MAX - maxtrials);
+     *iter = 1;
+     while (*iter <= maxtrials)
+     {
+diff --git a/src/types.h b/src/types.h
+index b35c5cd..9308674 100755
+--- a/src/types.h
++++ b/src/types.h
+@@ -15,6 +15,7 @@
+ #define TYPES_H
+ 
+ #include <stdio.h>
++#include <limits.h>
+ 
+ #include "hash.h"
+ 
+@@ -105,8 +106,11 @@ typedef  int          INT4;
+ #define ABS(x)   (((x)<0) ? -(x) : (x))       // absolute value of x
+ #define MIN(x,y) (((x)<=(y)) ? (x) : (y))     // minimum of x and y
+ #define MAX(x,y) (((x)>=(y)) ? (x) : (y))     // maximum of x and y
+-#define ROUND(x) (((x)>=0) ? (int)((x)+.5) : (int)((x)-.5))
+-                                              // round-off of x
++#define ROUND(x) (((x)>=INT_MAX) ? INT_MAX : ((x)>=0) ? (int)((x)+.5) : \
++                  ((x)>INT_MIN) ? (int)((x)-.5) : INT_MIN)
++                                              // round-off of x (limited to
++                                              // INT_MIN..INT_MAX; NaN gives
++                                              // INT_MIN)
+ #define MOD(x,y) ((x)%(y))                    // x modulus y
+ #define SQR(x)   ((x)*(x))                    // x-squared
+ #define SGN(x)   (((x)<0) ? (-1) : (1))       // sign of x

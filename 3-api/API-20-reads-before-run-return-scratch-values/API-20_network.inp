@@ -1,0 +1,31 @@
+[TITLE]
+API-20: tank T1 feeds junctions J1 and J2; no emitters until the test adds them
+The emitter exponent is above 1, the case behind issue #795.
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     100
+ J2  0     100
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  100   10         0         20        50        0       ; 19,635 ft3 at 10 ft
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  T1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    12    100    0      Open
+
+[TIMES]
+ Duration            1:00
+ Hydraulic Timestep  1:00
+
+[REPORT]
+ Summary  No
+
+[OPTIONS]
+ Units             GPM
+ Headloss          H-W
+ Emitter Exponent  1.1
+
+[END]

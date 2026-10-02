@@ -1,0 +1,28 @@
+[TITLE]
+API-02: two reservoirs at the same head each supply one junction; trace from Lake
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     100     ; supplied by River
+ J2   0     100     ; supplied by Lake
+
+[RESERVOIRS]
+;ID     Head
+ River  100         ; node 3
+ Lake   100         ; node 4, the trace node
+
+[PIPES]
+;ID  N1     N2  Length  Diam  Rough  Mloss  Status
+ P1  River  J1  1000    12    100    0      Open
+ P2  Lake   J2  1000    12    100    0      Open
+ P3  J1     J2  1000    12    100    0      Open    ; no flow, the heads are equal
+
+[TIMES]
+ Duration            6:00
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+ Quality    Trace Lake
+
+[END]

@@ -1,0 +1,49 @@
+[TITLE]
+WQ-01: R1 fills tank T1 through J1 for 3 hours, then T1 drains back; bulk reaction of order 0.5
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     500
+
+[RESERVOIRS]
+;ID  Head  Pattern
+ R1  100   HEADPAT
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  0     50         0         100       30        0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  5280    12    100
+ P2  J1  T1  5280    12    100
+
+[PATTERNS]
+;ID       Multipliers, one per hour
+ HEADPAT  1  1  1  0.4  0.4  0.4      ; R1 drops to 40 ft at 3:00, below the tank
+
+[QUALITY]
+;Node  InitQual
+ R1    1.0      ; J1, T1 and the pipes start at 0 mg/L
+
+[REACTIONS]
+ Order Bulk   0.5     ; any order between 0 and 1 shows the bug
+ Global Bulk  -10     ; per day
+
+[OPTIONS]
+ Units    GPM
+ Headloss H-W
+ Quality  Chlorine mg/L
+
+[TIMES]
+ Duration            6:00
+ Hydraulic Timestep  1:00
+ Quality Timestep    0:05
+ Pattern Timestep    1:00
+ Report Timestep     1:00
+
+[REPORT]
+ Status  No
+ Summary No
+
+[END]

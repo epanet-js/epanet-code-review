@@ -1,0 +1,30 @@
+[TITLE]
+FILE-09: reservoir R1 supplies J1 for 4 hours (5 reporting periods); pressures in kPa
+
+[JUNCTIONS]
+;ID   Elev  Demand  Pattern
+ J1   10    10      DAY       ;demand changes every hour
+
+[RESERVOIRS]
+;ID   Head
+ R1   50
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    200   100    0      Open
+
+[PATTERNS]
+;ID   Multipliers
+ DAY  0.5  1.0  1.5  1.0  2.0
+
+[TIMES]
+ Duration          4:00
+ Hydraulic Timestep 1:00
+ Pattern Timestep  1:00
+ Report Timestep   1:00
+
+[OPTIONS]
+ Units     LPS
+ Pressure  kPa           ;written to the output file as code 1
+
+[END]

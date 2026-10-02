@@ -1,0 +1,46 @@
+SIM-05: convert emitter coefficients with the psi or metre factor
+
+Emitter coefficients are per psi (US) or per metre (SI) whatever the
+pressure units. The parser and the EN_EMITTER getter and setter use
+PSIperFT * SpGrav or MperFT, but EN_setoption(EN_EMITEXPON) and the
+[EMITTERS] writer in saveinpfile used Ucf[PRESSURE]. With pressure
+units other than psi (US) or metres (SI), both changed every emitter
+coefficient. Use the parser's factor in both places.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-05_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..18f2975 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1309,7 +1309,9 @@ int DLLEXPORT EN_setoption(EN_Project p, int option, double value)
+     case EN_EMITEXPON:
+         if (value <= 0.0) return 213;
+         n = 1.0 / value;
+-        ucf = pow(Ucf[FLOW], n) / Ucf[PRESSURE];
++        // Emitter coeffs. are per psi (US) or per meter (SI) of pressure
++        ucf = (p->parser.Unitsflag == US) ? (PSIperFT * hyd->SpGrav) : MperFT;
++        ucf = pow(Ucf[FLOW], n) / ucf;
+         for (i = 1; i <= Njuncs; i++)
+         {
+             j = EN_getnodevalue(p, i, EN_EMITTER, &Ke);
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..f8995d5 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -356,11 +356,13 @@ int saveinpfile(Project *pr, const char *fname)
+     fprintf(f, s_EMITTERS);
+     fprintf(f, "\n;;%-31s\t%-14s",
+         "Junction", "Coefficient");
++    // Emitter coeffs. are per psi (US) or per meter (SI) of pressure
++    ucf = (parser->Unitsflag == US) ? (PSIperFT * hyd->SpGrav) : MperFT;
+     for (i = 1; i <= net->Njuncs; i++)
+     {
+         node = &net->Node[i];
+         if (node->Ke == 0.0) continue;
+-        ke = pr->Ucf[FLOW] / pow(pr->Ucf[PRESSURE] * node->Ke, (1.0 / hyd->Qexp));
++        ke = pr->Ucf[FLOW] / pow(ucf * node->Ke, (1.0 / hyd->Qexp));
+         fprintf(f, "\n %-31s\t%-14.6f", node->ID, ke);
+     }
+ 

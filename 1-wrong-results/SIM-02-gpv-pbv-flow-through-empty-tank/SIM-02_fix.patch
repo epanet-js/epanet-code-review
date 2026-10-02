@@ -1,0 +1,36 @@
+SIM-02: treat TEMPCLOSED GPVs and PBVs as closed
+
+tankstatus() marks a valve that would drain an empty tank (or fill a
+full one) TEMPCLOSED. gpvcoeff() only tested for CLOSED, and the active
+branch of pbvcoeff() never looked at the status, so both valves kept
+passing flow that newlinkflows() did not charge to the tank. Test
+<= CLOSED in both, as pipecoeff(), pumpcoeff() and valvecoeff() do.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-02_fix.patch
+
+diff --git a/src/hydcoeffs.c b/src/hydcoeffs.c
+index d0b03c2..78a39d4 100644
+--- a/src/hydcoeffs.c
++++ b/src/hydcoeffs.c
+@@ -966,7 +966,7 @@ void  gpvcoeff(Project *pr, int k)
+     Hydraul *hyd = &pr->hydraul;
+ 
+     // Treat as a pipe if valve closed
+-    if (hyd->LinkStatus[k] == CLOSED) valvecoeff(pr, k);
++    if (hyd->LinkStatus[k] <= CLOSED) valvecoeff(pr, k);
+ 
+     // Otherwise utilize segment of head loss curve
+     // bracketing current flow (curve index is stored
+@@ -1003,8 +1003,9 @@ void  pbvcoeff(Project *pr, int k)
+     Hydraul *hyd = &pr->hydraul;
+     Slink *link = &pr->network.Link[k];
+ 
+-    // If valve fixed OPEN or CLOSED then treat as a pipe
+-    if (hyd->LinkSetting[k] == MISSING || hyd->LinkSetting[k] == 0.0)
++    // If valve closed, or fixed OPEN or CLOSED, then treat as a pipe
++    if (hyd->LinkStatus[k] <= CLOSED ||
++        hyd->LinkSetting[k] == MISSING || hyd->LinkSetting[k] == 0.0)
+     {
+         valvecoeff(pr, k);
+     }

@@ -1,0 +1,33 @@
+[TITLE]
+API-18: tank T1 drains 200 gpm into junction J1; reservoir R1 is a low backup
+R1 sits behind a check valve and is below T1, so it supplies nothing.
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     200
+
+[RESERVOIRS]
+;ID  Head
+ R1  50
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  100   10         0         20        50        0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  T1  J1  1000    12    100    0      Open
+ P2  R1  J1  1000    12    100    0      CV
+
+[TIMES]
+ Duration            1:00
+ Hydraulic Timestep  1:00
+
+[REPORT]
+ Summary  No
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

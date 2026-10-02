@@ -1,0 +1,29 @@
+SIM-09: start the hydraulic reporting clock on the Rstart grid
+
+inithyd() set the first reporting time Rtime to Rstep, ignoring Rstart,
+so the hydraulic time steps only landed on multiples of Rstep. With a
+report start that is not a multiple of the report step, no solution was
+computed at the reporting times, and the water quality pass stored the
+next solution under each label. Set Rtime to the first time after 0 on
+the grid Rstart + k*Rstep. When Rstart is a multiple of Rstep (or 0),
+this is Rstep as before, so those runs are unchanged.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-09_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..ac79800 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -182,7 +182,10 @@ void inithyd(Project *pr, int initflag)
+     hyd->Haltflag = 0;
+     time->Htime = 0;
+     time->Hydstep = 0;
+-    time->Rtime = time->Rstep;
++
++    // First reporting time after 0 on the grid Rstart + k*Rstep
++    time->Rtime = time->Rstart % time->Rstep;
++    if (time->Rtime == 0) time->Rtime = time->Rstep;
+ }
+ 
+ 

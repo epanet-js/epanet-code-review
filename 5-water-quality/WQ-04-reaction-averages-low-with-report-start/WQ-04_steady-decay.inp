@@ -1,0 +1,48 @@
+[TITLE]
+WQ-04: steady flow, constant reaction rate and constant mass source: every average is the same
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     0
+ J2  0     200
+
+[RESERVOIRS]
+;ID  Head
+ R1  100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+ P2  J1  J2  1000    12    100
+
+[QUALITY]
+;Node  InitQual
+ R1    1.0
+ J1    1.0
+ J2    1.0      ; the pipes start at 1.0 mg/L as well
+
+[SOURCES]
+;Node  Type  Strength
+ J1    MASS  60         ; 60 mg/min = 3600 mg/hr
+
+[REACTIONS]
+ Order Bulk   0         ; zero order: every litre loses 0.1 mg/day, whatever its concentration
+ Global Bulk  -0.1      ; mg/L/day
+
+[OPTIONS]
+ Units    GPM
+ Headloss H-W
+ Quality  Chlorine mg/L
+
+[TIMES]
+ Duration            24:00
+ Hydraulic Timestep  1:00
+ Quality Timestep    0:05
+ Report Timestep     1:00
+ Report Start        0:00
+
+[REPORT]
+ Status  No
+ Summary No
+
+[END]

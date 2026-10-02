@@ -1,0 +1,38 @@
+[TITLE]
+SIM-22: pump PU1 and GPV V1 in series carry a fixed 100 gpm from R1 to J2
+The pump's head gain and the GPV's head loss are read straight off their curves.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     0
+ J2   0     100
+
+[RESERVOIRS]
+;ID   Head
+ R1   0
+
+[PUMPS]
+;ID   N1  N2  Parameters
+ PU1  R1  J1  HEAD PC1
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting
+ V1  J1  J2  12    GPV   GC1
+
+[CURVES]
+;ID  Flow (gpm)  Head (ft)
+ PC1  100        50       ; pump curve: 50 ft at 100 gpm
+ PC2  100        80       ; pump curve: 80 ft at 100 gpm
+ GC1  0          0        ; GPV curve: 10 ft at 100 gpm
+ GC1  200        20
+ GC2  0          0        ; GPV curve: 30 ft at 100 gpm
+ GC2  200        60
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

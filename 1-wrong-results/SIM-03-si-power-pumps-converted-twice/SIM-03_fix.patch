@@ -1,0 +1,64 @@
+SIM-03: store constant pump power in hp and convert it once
+
+The parser converts a POWER value from kW to hp (input1.c) and
+constpowerpump() converts it again, so SI pumps had 1.341 times their
+power. The API setter, the getter and the INP writer used the raw kW
+value, so the getter read hp and every save multiplied the power by
+1.341. Keep Link.Km in hp, like other internal quantities: drop the
+second conversion in constpowerpump(), and convert in EN_setlinkvalue,
+EN_getlinkvalue and saveinpfile. EN_setflowunits then needs no change.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-03_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..39db53e 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4041,7 +4041,7 @@ int DLLEXPORT EN_getlinkvalue(EN_Project p, int index, int property, double *val
+         if (Link[index].Type == PUMP)
+         {
+             pmp = findpump(net, index);
+-            if (Pump[pmp].Ptype == CONST_HP) v = Link[index].Km; // Power in HP or KW
++            if (Pump[pmp].Ptype == CONST_HP) v = Link[index].Km * Ucf[POWER];
+         }
+         break;
+ 
+@@ -4300,7 +4300,7 @@ int DLLEXPORT EN_setlinkvalue(EN_Project p, int index, int property, double valu
+             pumpIndex = findpump(&p->network, index);
+             net->Pump[pumpIndex].Ptype = CONST_HP;
+             net->Pump[pumpIndex].Hcurve = 0;
+-            net->Link[index].Km = value;
++            net->Link[index].Km = value / Ucf[POWER];
+         }
+         break;
+ 
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..5623c40 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -244,7 +244,10 @@ int saveinpfile(Project *pr, const char *fname)
+                 net->Node[link->N2].ID);
+ 
+         // Pump has constant power
+-        if (pump->Ptype == CONST_HP) sprintf(s1, "\tPOWER %.4f", link->Km);
++        if (pump->Ptype == CONST_HP)
++        {
++            sprintf(s1, "\tPOWER %.4f", link->Km * pr->Ucf[POWER]);
++        }
+ 
+         // Pump has a head curve
+         else if ((j = pump->Hcurve) > 0)
+diff --git a/src/validate.c b/src/validate.c
+index fb99249..ea8fba4 100644
+--- a/src/validate.c
++++ b/src/validate.c
+@@ -276,7 +276,7 @@ int constpowerpump(Project *pr, Spump *pump)
+ {
+     pump->Ptype = CONST_HP;
+     pump->H0 = 0.0;
+-    pump->R = -8.814 * pr->network.Link[pump->Link].Km / pr->Ucf[POWER];
++    pump->R = -8.814 * pr->network.Link[pump->Link].Km;
+     pump->N = -1.0;
+     pump->Hmax = BIG; // No head limit
+     pump->Qmax = BIG; // No flow limit

@@ -1,0 +1,48 @@
+API-16: refuse option values that an input file cannot hold
+
+EN_setoption accepted values that saveinpfile cannot write in a form the
+parser reads back. CHECKFREQ and MAXCHECK below 1 were truncated to 0,
+which the parser refuses (error 213). The parser reads a VISCOSITY of
+0.001 or less, and a DIFFUSIVITY of 0.0001 or less other than 0, as an
+absolute value rather than one relative to water or chlorine, so such
+relative values came back thousands of times too large, or as 0 and an
+error. Refuse these values with 213, as EN_TRIALS does below 1.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-16_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..36e1896 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1371,15 +1371,19 @@ int DLLEXPORT EN_setoption(EN_Project p, int option, double value)
+         break;
+ 
+     case EN_SP_VISCOS:
+-        if (value <= 0.0) return 213;
++        // An input file reads a VISCOSITY of 0.001 or less as an actual
++        // viscosity, so such relative values could not be saved
++        if (value <= 1.e-3) return 213;
+         hyd->Viscos = value * VISCOS;
+         break;
+ 
+     case EN_CHECKFREQ:
++        if (value < 1.0) return 213;
+         hyd->CheckFreq = (int)value;
+         break;
+ 
+     case EN_MAXCHECK:
++        if (value < 1.0) return 213;
+         hyd->MaxCheck = (int)value;
+         break;
+ 
+@@ -1388,6 +1392,9 @@ int DLLEXPORT EN_setoption(EN_Project p, int option, double value)
+         break;
+ 
+     case EN_SP_DIFFUS:
++        // An input file reads a DIFFUSIVITY of 0.0001 or less (other than 0)
++        // as an actual diffusivity, so such relative values could not be saved
++        if (value > 0.0 && value <= 1.e-4) return 213;
+         qual->Diffus = value * DIFFUS;
+         break;
+ 

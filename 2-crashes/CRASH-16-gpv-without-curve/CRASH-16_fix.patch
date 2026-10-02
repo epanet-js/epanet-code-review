@@ -1,0 +1,64 @@
+CRASH-16: check that every GPV has a head loss curve before solving
+
+A GPV added with EN_addlink or EN_setlinktype, or read from a [VALVES]
+line without a curve field, has curve index 0. validateproject() checked
+tanks, pumps, patterns and curves but not valves, so gpvcoeff() passed
+index 0 to curvecoeff(), which read the unused, uninitialised Curve[0].
+Add validatevalves(): a GPV whose curve index is not a valid curve now
+gives "Error 206: undefined curve for GPV <ID>" in the report, and
+EN_openH returns 110 as for the other validation errors.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-16_fix.patch
+
+diff --git a/src/validate.c b/src/validate.c
+index fb99249..f56d848 100644
+--- a/src/validate.c
++++ b/src/validate.c
+@@ -151,6 +151,38 @@ int validatecurves(Project *pr)
+     return result;
+ }
+ 
++int validatevalves(Project *pr)
++/*
++**-------------------------------------------------------------------
++**  Input:   none
++**  Output:  returns 1 if successful, 0 if not
++**  Purpose: checks that each GPV is assigned a head loss curve.
++**-------------------------------------------------------------------
++*/
++{
++    Network *net = &pr->network;
++    int i, c, result = 1;
++    char errmsg[MAXMSG+1] = "";
++    Slink *link;
++
++    for (i = 1; i <= net->Nvalves; i++)
++    {
++        link = &net->Link[net->Valve[i].Link];
++        if (link->Type != GPV) continue;
++
++        // Curve index is stored in the valve's Kc property
++        c = ROUND(link->Kc);
++        if (c < 1 || c > net->Ncurves)
++        {
++            sprintf(pr->Msg, "Error 206: %s for GPV %s",
++                geterrmsg(206, errmsg), link->ID);
++            writeline(pr, pr->Msg);
++            result = 0;
++        }
++    }
++    return result;
++}
++
+ int powerfuncpump(double h0, double h1, double h2, double q1, double q2,
+                   double *a, double *b, double *c)
+ /*
+@@ -343,6 +375,7 @@ int validateproject(Project *pr)
+     if (!validatepumps(pr)) errcode = 110;
+     if (!validatepatterns(pr)) errcode = 110;
+     if (!validatecurves(pr)) errcode = 110;
++    if (!validatevalves(pr)) errcode = 110;
+     return errcode;
+ }
+ 

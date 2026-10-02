@@ -1,0 +1,28 @@
+FILE-06: keep zero-demand categories that have a name or a pattern
+
+Proposal. Since PR #702, saveinpfile() skips every demand category with
+a zero base demand. That also drops placeholder categories that a model
+keeps on purpose: their name and pattern are lost and the number of
+categories changes on reload. Skip a zero category only when it has
+neither a name nor a pattern, as eladsal suggested in issue #174. Such
+a category carries no information, so files stay as small as before.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-06_fix.patch
+
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..624ed1d 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -341,7 +341,10 @@ int saveinpfile(Project *pr, const char *fname)
+         node = &net->Node[i];
+         for (demand = node->D; demand != NULL; demand = demand->next)
+         {
+-            if (demand->Base == 0.0) continue;
++            // Skip a zero demand unless it has a name or a pattern
++            // (a placeholder category the user wants to keep)
++            if (demand->Base == 0.0 && demand->Pat == 0 &&
++                (demand->Name == NULL || demand->Name[0] == '\0')) continue;
+             sprintf(s, " %-31s\t%-14.6f", node->ID, ucf * demand->Base);
+             if ((j = demand->Pat) > 0) sprintf(s1, "%-31s", net->Pattern[j].ID);
+             else strcpy(s1, " ");

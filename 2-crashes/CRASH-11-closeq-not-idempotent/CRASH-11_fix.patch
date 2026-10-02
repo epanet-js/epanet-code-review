@@ -1,0 +1,23 @@
+CRASH-11: clear the segment pool pointer when closing quality
+
+closequal() deletes the water quality segment pool but leaves
+qual->SegPool pointing at the freed pool. EN_closeQ does not check
+whether the solver is open, so a second call, such as EN_closeQ after
+EN_solveQ, deletes the pool again. Set the pointer to NULL after the
+delete, as the FREE() calls next to it already do for the other arrays.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-11_fix.patch
+
+diff --git a/src/quality.c b/src/quality.c
+index 36c89b9..b340dda 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -406,6 +406,7 @@ int closequal(Project *pr)
+     if (qual->Qualflag != NONE)
+     {
+         if (qual->SegPool) mempool_delete(qual->SegPool);
++        qual->SegPool = NULL;
+         FREE(qual->FirstSeg);
+         FREE(qual->LastSeg);
+         FREE(qual->PipeRateCoeff);

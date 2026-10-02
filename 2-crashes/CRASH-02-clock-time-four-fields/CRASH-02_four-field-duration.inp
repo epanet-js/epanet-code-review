@@ -1,0 +1,24 @@
+[TITLE]
+CRASH-02: a duration written with four colon-separated fields
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   10
+
+[RESERVOIRS]
+;ID   Head
+ R1   150
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+
+[TIMES]
+ Duration            1:2:3:4    ; hh:mm:ss has three fields, this has four
+ Hydraulic Timestep  1:00
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

@@ -1,0 +1,39 @@
+[TITLE]
+SIM-14: pressure-driven demand in kPa with a 0.2 kPa pressure range
+Demand falls from full at 20.2 kPa to zero at 20 kPa. Reservoir R1 (12 m) cannot
+supply the full 150 L/s, so the junctions settle inside that narrow range.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     50        ; L/s
+ J2   0     50
+ J3   0     50
+
+[RESERVOIRS]
+;ID   Head
+ R1   12
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  500     150   100    0      Open
+ P2  J1  J2  500     100   100    0      Open
+ P3  J2  J3  500     100   100    0      Open
+
+[OPTIONS]
+ Units              LPS
+ Headloss           H-W
+ Pressure           KPA
+ Demand Model       PDA
+ Minimum Pressure   20      ; kPa
+ Required Pressure  20.2    ; kPa: 0.2 kPa = 0.067 ft above the minimum
+ Pressure Exponent  0.5
+ Unbalanced         Continue 10
+
+[TIMES]
+ Duration  0
+
+[REPORT]
+ Status   Yes
+ Summary  No
+
+[END]

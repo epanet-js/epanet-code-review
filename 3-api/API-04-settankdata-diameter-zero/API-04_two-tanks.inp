@@ -1,0 +1,31 @@
+[TITLE]
+API-04: two identical tanks; the test sets the diameter of each to 0 in a different way
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     100
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  100   10         0         20        50        0       ; EN_settankdata, diameter 0
+ T2  100   10         0         20        50        0       ; EN_TANKDIAM set to 0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  T1  1000    12    100    0      Open
+ P3  J1  T2  1000    12    100    0      Open
+
+[TIMES]
+ Duration            4:00
+ Hydraulic Timestep  1:00
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

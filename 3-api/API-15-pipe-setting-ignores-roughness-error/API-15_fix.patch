@@ -1,0 +1,24 @@
+API-15: return the roughness error from a pipe's EN_SETTING
+
+For a pipe, EN_setlinkvalue(EN_INITSETTING or EN_SETTING) calls itself
+with EN_ROUGHNESS, but discarded the return code. A roughness of 0 or
+less was refused, nothing changed, and the caller got 0. Return the
+error code of the roughness assignment.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-15_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..838f77d 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4224,7 +4224,8 @@ int DLLEXPORT EN_setlinkvalue(EN_Project p, int index, int property, double valu
+     case EN_SETTING:
+         if (Link[index].Type == PIPE || Link[index].Type == CVPIPE)
+         {
+-            EN_setlinkvalue(p, index, EN_ROUGHNESS, value);
++            int errcode = EN_setlinkvalue(p, index, EN_ROUGHNESS, value);
++            if (errcode > 0) return errcode;
+             if (property == EN_INITSETTING) Link[index].InitSetting = Link[index].Kc;
+         }
+         else

@@ -1,0 +1,43 @@
+FILE-12: read every token on an input line
+
+gettokens() stops after MAXTOKS (40) tokens and drops the rest of the
+line without an error, so a [PATTERNS] line with more than 39 factors,
+or a [REPORT] NODES line with more than 39 IDs, was silently cut short.
+The documented limit is 1,024 characters per line, so MAXTOKS is raised
+to MAXLINE / 2 + 1, enough for a full line of one-character tokens.
+gettokens() used to set all MAXTOKS slots to NULL for every line; it now
+clears only the slots the previous line used (the others are already
+NULL), so the larger array does not slow down reading the file.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-12_fix.patch
+
+diff --git a/src/input2.c b/src/input2.c
+index 220c757..bb9fd21 100644
+--- a/src/input2.c
++++ b/src/input2.c
+@@ -565,8 +565,9 @@ int  gettokens(char *s, char** Tok, int maxToks, char *comment)
+     // clear comment
+     comment[0] = '\0';
+ 
+-    // Begin with no tokens
+-    for (n=0; n<maxToks; n++) Tok[n] = NULL;
++    // Begin with no tokens (only the slots used by the previous
++    // line need clearing; the rest are still NULL)
++    for (n = 0; n < maxToks && Tok[n] != NULL; n++) Tok[n] = NULL;
+     n = 0;
+ 
+     // Truncate s at start of comment
+diff --git a/src/types.h b/src/types.h
+index b35c5cd..96353dd 100755
+--- a/src/types.h
++++ b/src/types.h
+@@ -41,7 +41,7 @@ typedef  int          INT4;
+ #define   MAXMSG    255      // Max. # characters in message text
+ #define   MAXLINE   1024     // Max. # characters read from input line
+ #define   MAXFNAME  259      // Max. # characters in file name
+-#define   MAXTOKS   40       // Max. items per line of input
++#define   MAXTOKS   (MAXLINE / 2 + 1) // Max. items per line of input
+ #define   TRUE      1
+ #define   FALSE     0
+ #define   FULL      2

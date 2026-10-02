@@ -1,0 +1,23 @@
+[TITLE]
+API-24: reservoir R1 feeds junction J1; numbers use a dot as the decimal point
+
+[JUNCTIONS]
+;ID   Elev   Demand
+ J1   12.5   10.5      ; EPANET must read this as 12.5 in any locale
+
+[RESERVOIRS]
+;ID   Head
+ R1   150.25
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000.5  12    100
+
+[REPORT]
+ Nodes  All
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

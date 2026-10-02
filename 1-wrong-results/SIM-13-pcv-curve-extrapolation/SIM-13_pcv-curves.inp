@@ -1,0 +1,43 @@
+[TITLE]
+SIM-13: three positional control valves (PCVs), each between a reservoir and a junction
+Each valve passes 1000 gpm through 12 in with a fully open loss coefficient of 10.
+V1 is set beyond the last point of its curve; V2 has the same curve extended to (100,100).
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     1000
+ J2   0     1000
+ J3   0     1000
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+ R2   100
+ R3   100
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting  Mloss  Curve
+ V1  R1  J1  12    PCV   90       10     C1    ; 90 % open, above C1's last point (80 %)
+ V2  R2  J2  12    PCV   90       10     C2    ; same curve with an explicit (100,100)
+ V3  R3  J3  12    PCV   50       10     C3    ; 50 % open, above C3's last point (1 %)
+
+[CURVES]
+;ID  % open  Kv/Kvo (%)
+ C1  0       0
+ C1  50      20
+ C1  80      50
+ C2  0       0
+ C2  50      20
+ C2  80      50
+ C2  100     100
+ C3  0       0
+ C3  1       1
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

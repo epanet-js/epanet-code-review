@@ -1,0 +1,26 @@
+[TITLE]
+FILE-15: two PRVs share downstream node J2, on consecutive [VALVES] lines
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   1
+ J2   100   1
+ J3   100   1
+ J4   100   1
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+ P2  J1  J3  1000    12    100
+ P3  J2  J4  1000    12    100
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting  Mloss
+ V1  J1  J2  12    PRV   50       0
+ V2  J3  J2  12    PRV   50       0      ; also ends at J2: illegal (error 220)
+
+[END]

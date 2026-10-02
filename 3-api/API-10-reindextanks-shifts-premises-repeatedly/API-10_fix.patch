@@ -1,0 +1,28 @@
+API-10: shift tank rule premises once in reindextanks
+
+reindextanks() moves every tank and reservoir down by ndiff slots when
+fewer junctions were created than the file listed. It called
+adjusttankrules(pr, -ndiff) inside the loop over tanks, but that
+function shifts every tank premise at once, so each premise moved by
+ndiff times the number of tanks. The call now follows the loop.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-10_fix.patch
+
+diff --git a/src/validate.c b/src/validate.c
+index fb99249..517be03 100644
+--- a/src/validate.c
++++ b/src/validate.c
+@@ -393,9 +393,11 @@ void reindextanks(Project *pr)
+                 control = &net->Control[j];
+                 if (control->Node == n1) control->Node = n2;
+             }
+-            adjusttankrules(pr, -ndiff);
+             if (qual->TraceNode == n1) qual->TraceNode = n2;
+         }
++
++        // Shift tank indexes in rule premises (all tanks at once)
++        adjusttankrules(pr, -ndiff);
+         
+         // Reallocate the Node array (shouldn't fail as new size < old size)
+         parser->MaxJuncs = net->Njuncs;

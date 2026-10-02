@@ -1,0 +1,63 @@
+FILE-04: save pumps and GPVs without a curve as lines the parser reads
+
+A pump with no head curve or power was written in the numeric pump
+format of EPANET 2.0, which pumpdata() no longer reads (error 201). A
+GPV with no curve (curve index 0) was written with "0.0000" as its curve
+ID (error 206). Write the pump as "id node1 node2" followed by its usual
+PATTERN and SPEED keywords, and drop the [STATUS] line that carried the
+speed for the old format. Write the GPV without a setting; the parser
+already loads such a line as a GPV with curve index 0.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-04_fix.patch
+
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..65f737d 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -252,15 +252,8 @@ int saveinpfile(Project *pr, const char *fname)
+             sprintf(s1, "\tHEAD %s", net->Curve[j].ID);
+         }
+ 
+-        // Old format used for pump curve
+-        else
+-        {
+-            fprintf(f, "\n%s %12.4f %12.4f %12.4f          0.0 %12.4f", s,
+-                   -pump->H0 * pr->Ucf[HEAD],
+-                   (-pump->H0 - pump->R * pow(pump->Q0, pump->N)) * pr->Ucf[HEAD],
+-                   pump->Q0 * pr->Ucf[FLOW], pump->Qmax * pr->Ucf[FLOW]);
+-            continue;
+-        }
++        // Pump has no curve or power assigned yet
++        else strcpy(s1, "");
+         strcat(s, s1);
+ 
+         // Optional speed pattern
+@@ -319,6 +312,8 @@ int saveinpfile(Project *pr, const char *fname)
+         {
+             sprintf(s1, "%-31s\t%-12.4f", net->Curve[j].ID, km);
+         }
++        // GPV with no head curve assigned yet: leave out the setting
++        else if (link->Type == GPV) strcpy(s1, "");
+         // For PCV add loss curve if present
+         else if (link->Type == PCV && (j = net->Valve[i].Curve) > 0)
+         {
+@@ -392,18 +387,6 @@ int saveinpfile(Project *pr, const char *fname)
+             {
+                 fprintf(f, "\n %-31s\t%s", link->ID, StatTxt[CLOSED]);
+             }
+-
+-            // Write pump speed here for pumps with old-style pump curve input
+-            else if (link->Type == PUMP)
+-            {
+-                n = findpump(net, i);
+-                pump = &net->Pump[n];
+-                if (pump->Hcurve == 0 && pump->Ptype != CONST_HP &&
+-                    link->InitSetting != 1.0)
+-                {
+-                    fprintf(f, "\n %-31s\t%-.4f", link->ID, link->InitSetting);
+-                }
+-            }
+         }
+ 
+         // Write fixed-status valves 

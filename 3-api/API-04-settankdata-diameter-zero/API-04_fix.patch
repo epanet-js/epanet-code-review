@@ -1,0 +1,32 @@
+API-04: document that EN_settankdata with diameter 0 makes a reservoir
+
+EN_settankdata accepts a diameter of 0 without a volume curve. The
+tank's area becomes 0, which EPANET reads as a reservoir with a fixed
+head of elev + initlvl, and the tank functions return 263 for it
+afterwards. The maintainers keep this for backward compatibility
+(#647), and a [TANKS] line with diameter 0 behaves the same way. The
+documentation did not say so. This patch documents the behaviour; it
+changes no code.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-04_fix.patch
+
+diff --git a/include/epanet2_2.h b/include/epanet2_2.h
+index af0dd62..deb1fc0 100644
+--- a/include/epanet2_2.h
++++ b/include/epanet2_2.h
+@@ -996,6 +996,14 @@ typedef struct Project *EN_Project;
+   @return an error code.
+ 
+   These properties have units that depend on the units used for flow rate (see @ref Units).
++
++  If `diam` is 0 and no volume curve is supplied, the tank's area becomes 0 and the node
++  is converted to a reservoir with a fixed head of `elev` + `initlvl`, as for a tank with
++  zero diameter in an input file. This is kept for backward compatibility. It cannot be
++  undone: ::EN_getnodetype then returns `EN_RESERVOIR`, and this function and
++  ::EN_setnodevalue for the tank's diameter, minimum and maximum levels, minimum volume
++  and volume curve return error 263 for the node. To change only a tank's diameter, use
++  ::EN_setnodevalue with `EN_TANKDIAM`, which rejects 0 with error 209.
+   */
+   int  DLLEXPORT EN_settankdata(EN_Project ph, int index, double elev, double initlvl,
+                  double minlvl, double maxlvl, double diam, double minvol, const char *volcurve);

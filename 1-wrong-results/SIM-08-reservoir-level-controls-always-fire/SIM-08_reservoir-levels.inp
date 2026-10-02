@@ -1,0 +1,44 @@
+[TITLE]
+SIM-08: two intakes closed by level controls on the reservoirs they draw from
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     500
+
+[RESERVOIRS]
+;ID     Head  Pattern
+ RIVER  100   RISE      ; level 0 ft until 3:00, then 20 ft (head 120 ft)
+ LAKE   100   FALL      ; level 20 ft until 3:00, then 0 ft (head 100 ft)
+ MAIN   90              ; backup supply, always open
+
+[PIPES]
+;ID  Node1  Node2  Length  Diam  Rough  Mloss  Status
+ P1  RIVER  J1     1000    12    100    0      Open
+ P2  LAKE   J1     1000    12    100    0      Open
+ P3  MAIN   J1     1000    12    100    0      Open
+
+[PATTERNS]
+;ID    Multipliers (hourly)
+ RISE  1.0  1.0  1.0  1.2  1.2  1.2
+ FALL  1.2  1.2  1.2  1.0  1.0  1.0
+
+[CONTROLS]
+; A reservoir's level is measured from its Head value above
+ LINK P1 CLOSED IF NODE RIVER ABOVE 10   ; should close P1 at 3:00
+ LINK P2 CLOSED IF NODE LAKE BELOW 10    ; should close P2 at 3:00
+
+[TIMES]
+ Duration            5:00
+ Hydraulic Timestep  1:00
+ Pattern Timestep    1:00
+ Report Timestep     1:00
+
+[REPORT]
+ Status   Yes
+ Summary  No
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

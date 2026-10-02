@@ -1,0 +1,31 @@
+[TITLE]
+FILE-05: four time-based controls on two pipes; the comments give each time in seconds
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   50    100
+ J2   40    50
+
+[RESERVOIRS]
+;ID   Head
+ R1   150
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    8     100    0      Open
+
+[CONTROLS]
+ LINK P1 CLOSED AT TIME 0:20                 ;1200 s
+ LINK P1 OPEN   AT TIME 6:20:01              ;22801 s
+ LINK P2 CLOSED AT TIME 0:01:01              ;61 s
+ LINK P2 OPEN   AT CLOCKTIME 8:00:01 AM      ;28801 s
+
+[TIMES]
+ Duration           12:00
+ Hydraulic Timestep 1:00
+
+[OPTIONS]
+ Units     GPM
+
+[END]

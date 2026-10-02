@@ -1,0 +1,104 @@
+FILE-11: stop splitting long input lines; make error 214 reachable
+
+Both passes over the input file read it with fgets(line, MAXLINE, ...),
+which returns at most 1,023 characters. The rest of a longer line came
+back from the next call and was parsed as a new line: a long comment
+became a bogus data line, and a long pattern line became two patterns.
+The "line too long" check, strlen(line) >= MAXLINE, could never be true.
+A new function skips the rest of such a line and reports whether any
+non-blank characters were lost. readdata() now gives error 214 when that
+happens on a data line (unless the lost part is in a comment), and
+netsize() skips the rest of the line too, so both passes agree. The
+error message, which had never been printed, now starts "Error 214:".
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-11_fix.patch
+
+diff --git a/src/input2.c b/src/input2.c
+index 220c757..7a5d357 100644
+--- a/src/input2.c
++++ b/src/input2.c
+@@ -40,6 +40,7 @@ static int  newline(Project *, int, char *);
+ static int  addpattern(Network *, char *);
+ static int  addcurve(Network *, char *);
+ static void inperrmsg(Project *, int, int, char *);
++static int  skiprestofline(FILE *, char *);
+ 
+ 
+ int netsize(Project *pr)
+@@ -86,6 +87,9 @@ int netsize(Project *pr)
+     if (parser->InFile == NULL) return 0;
+     while (fgets(line, MAXLINE, parser->InFile) != NULL)
+     {
++        // Skip the rest of a line too long for the buffer
++        skiprestofline(parser->InFile, line);
++
+         // Skip blank lines & those beginning with a comment
+         tok = strtok(line, SEPSTR);
+         if (tok == NULL) continue;
+@@ -160,7 +164,8 @@ int readdata(Project *pr)
+ 	char errmsg[MAXMSG + 1] = "";		 
+     int  sect, newsect,      // Data sections
+          errcode = 0,        // Error code
+-         inperr, errsum;     // Error code & total error count
++         inperr, errsum,     // Error code & total error count
++         toolong;            // Line too long for the buffer
+ 
+     // Allocate input buffer
+     parser->X = (double *)calloc(MAXTOKS, sizeof(double));
+@@ -193,6 +198,10 @@ int readdata(Project *pr)
+     // Read each line from input file
+     while (fgets(line, MAXLINE, parser->InFile) != NULL)
+     {
++        // Skip the rest of a line too long for the buffer; this is an
++        // error unless only blanks or part of a comment were lost
++        toolong = skiprestofline(parser->InFile, line) && !strchr(line, ';');
++
+         // Make copy of line and scan for tokens
+         strcpy(wline, line);
+         parser->Ntokens = gettokens(wline, parser->Tok, MAXTOKS, parser->Comment);
+@@ -217,9 +226,10 @@ int readdata(Project *pr)
+         parser->LineComment[0] = '\0';
+ 
+         // Check if max. line length exceeded
+-        if (strlen(line) >= MAXLINE)
++        if (toolong && sect >= 0)
+         {
+-            sprintf(pr->Msg, "%s section: %s", geterrmsg(214, errmsg), SectTxt[sect]);
++            sprintf(pr->Msg, "Error 214: %s in %s section:", geterrmsg(214, errmsg),
++                    SectTxt[sect]);
+             writeline(pr, pr->Msg);
+             writeline(pr, line);
+             errsum++;
+@@ -269,6 +279,31 @@ int readdata(Project *pr)
+     return errcode;
+ }
+ 
++int skiprestofline(FILE *f, char *line)
++/*
++**--------------------------------------------------------------
++**  Input:   f    = input file
++**           line = line read from f by fgets
++**  Output:  returns 1 if characters other than blanks were
++**           skipped, 0 if not
++**  Purpose: skips the rest of a line that was too long to fit
++**           in the line buffer
++**--------------------------------------------------------------
++*/
++{
++    int c, lost = 0;
++
++    // The whole line was read
++    if (strchr(line, '\n') != NULL) return 0;
++
++    // Otherwise read up to the end of the line
++    while ((c = fgetc(f)) != EOF && c != '\n')
++    {
++        if (c != ' ' && c != '\t' && c != '\r') lost = 1;
++    }
++    return lost;
++}
++
+ int newline(Project *pr, int sect, char *line)
+ /*
+ **--------------------------------------------------------------

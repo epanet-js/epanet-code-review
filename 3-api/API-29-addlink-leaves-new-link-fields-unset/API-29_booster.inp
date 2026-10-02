@@ -1,0 +1,34 @@
+[TITLE]
+API-29: pump PU1 lifts water from R1 to three junctions along pipes P1 and P2
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     50
+ J2   0     50
+ J3   0     100
+
+[RESERVOIRS]
+;ID   Head
+ R1   50
+
+[PUMPS]
+;ID   N1  N2  Parameters
+ PU1  R1  J1  POWER 10      ; link 1, carries 200 gpm
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  J1  J2  1000    12    100    0      Open    ; link 2, 150 gpm
+ P2  J2  J3  1000    8     100    0      Open    ; link 3, the last link: 8 in, 100 gpm
+
+[TIMES]
+ Duration   0
+
+[REPORT]
+ Links      All
+ Diameter   Yes     ; add a diameter column to the link table
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

@@ -1,0 +1,33 @@
+[TITLE]
+SIM-20: SI network; tank T1 (100 m2 cylinder) drains 5 L/s into junction J1
+Volume curve VC describes the same 100 m2 cylinder. The test assigns it with EN_VOLCURVE.
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     5          ; L/s
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  50    5          0         10        11.2838   0       ; 100 m2
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  T1  J1  300     300   100    0      Open
+
+[CURVES]
+;ID  Level  Volume
+ VC  0      0
+ VC  10     1000       ; 100 m3 per m of level
+
+[TIMES]
+ Duration            1:00
+ Hydraulic Timestep  1:00
+
+[REPORT]
+ Summary  No
+
+[OPTIONS]
+ Units     LPS
+ Headloss  H-W
+
+[END]

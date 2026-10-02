@@ -1,0 +1,40 @@
+[TITLE]
+SIM-21: GPV V1 between J1 and J2, with three head loss curves to choose from
+At 100 gpm, curve C1 gives 5 ft, C2 gives 20 ft and C3 gives 80 ft. V1 uses C2.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     0
+ J2   0     0
+ J3   0     100
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J2  J3  1000    12    100    0      Open
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting
+ V1  J1  J2  12    GPV   C2
+
+[CURVES]
+;ID  Flow (gpm)  HeadLoss (ft)
+ C1  0           0
+ C1  100         5
+ C2  0           0
+ C2  100         20
+ C3  0           0
+ C3  100         80
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

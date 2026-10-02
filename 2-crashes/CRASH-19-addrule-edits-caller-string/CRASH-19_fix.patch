@@ -1,0 +1,53 @@
+CRASH-19: stop EN_addrule writing into the caller's rule text
+
+EN_addrule split the rule text into lines by writing '\0' over each
+newline of the caller's string, and put the newline back only after the
+line had been parsed. A string literal therefore faulted, and a rule
+with an error was left cut short in the caller's buffer. EN_addrule now
+finds the end of each line and copies that many characters into its
+own buffer, line2, so the caller's string is only read. The prototype
+keeps its char * argument.
+
+Requires: CRASH-18
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-18:
+    git apply CRASH-19_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 2c5a115..8f99a10 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -5646,18 +5646,18 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+     {
+         // Find where current line ends and next one begins
+         nextline = strchr(line, '\n');
+-        if (nextline) *nextline = '\0';
++        if (nextline == NULL) nextline = line + strlen(line);
+ 
+         // The line and the newline added below must fit in line2
+-        if (strlen(line) >= MAXLINE)
++        if (nextline - line >= MAXLINE)
+         {
+             rules->Errcode = 214;
+             break;
+         }
+ 
+-        // Copy and tokenize the current line
+-        strcpy(line2, line);
+-        strcat(line2, "\n");  // Tokenizer won't work without this
++        // Copy the current line and a newline (the tokenizer needs it)
++        // into line2 and tokenize it; the caller's string is only read
++        sprintf(line2, "%.*s\n", (int)(nextline - line), line);
+         parser->Ntokens = gettokens(line2, parser->Tok, MAXTOKS, parser->Comment);
+ 
+         // Process the line to build up the rule's contents
+@@ -5668,8 +5668,7 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+         }
+ 
+         // Extract next line from the rule statement
+-        if (nextline) *nextline = '\n';
+-        line = nextline ? (nextline + 1) : NULL;
++        line = *nextline ? (nextline + 1) : NULL;
+     }
+ 
+     // Delete new rule entry if there was an error

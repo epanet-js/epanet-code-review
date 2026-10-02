@@ -1,0 +1,43 @@
+FILE-16: report short [PIPES], [PUMPS] and [VALVES] lines as error 201
+
+PR #758 let link lines leave out their optional fields, but the check
+for lines too short to define a link returns setError(parser, -1,
+errcode) while errcode is still 0. A pipe or pump line with fewer than
+3 fields, or a valve line with fewer than 5, was skipped without any
+error, and the network ran without that link. Return error 201 (syntax
+error), as EPANET 2.2 did and as tankdata() still does.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-16_fix.patch
+
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..a1b8822 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -352,7 +352,7 @@ int pipedata(Project *pr)
+     // Check that end nodes exist
+     if (net->Nlinks == parser->MaxLinks) return 200;
+     n = parser->Ntokens;
+-    if (n < 3) return setError(parser, -1, errcode);
++    if (n < 3) return setError(parser, -1, 201);
+     if ((j1 = findnode(net, parser->Tok[1])) == 0) return setError(parser, 1, 203);
+     if ((j2 = findnode(net, parser->Tok[2])) == 0) return setError(parser, 2, 203);
+     if (j1 == j2) return setError(parser, 0, 222);
+@@ -476,7 +476,7 @@ int pumpdata(Project *pr)
+     if (net->Nlinks == parser->MaxLinks ||
+         net->Npumps == parser->MaxPumps) return 200;
+     n = parser->Ntokens;
+-    if (n < 3) return setError(parser, -1, errcode);
++    if (n < 3) return setError(parser, -1, 201);
+     if ((j1 = findnode(net, parser->Tok[1])) == 0) return setError(parser, 1, 203);
+     if ((j2 = findnode(net, parser->Tok[2])) == 0) return setError(parser, 2, 203);
+     if (j1 == j2) return setError(parser, 0, 222);
+@@ -583,7 +583,7 @@ int valvedata(Project *pr)
+     if (net->Nlinks == parser->MaxLinks ||
+         net->Nvalves == parser->MaxValves) return 200;
+     n = parser->Ntokens;
+-    if (n < 5) return setError(parser, -1, errcode);
++    if (n < 5) return setError(parser, -1, 201);
+     if ((j1 = findnode(net, parser->Tok[1])) == 0) return setError(parser, 1, 203);
+     if ((j2 = findnode(net, parser->Tok[2])) == 0) return setError(parser, 2, 203);
+     if (j1 == j2) return setError(parser, 0, 222);

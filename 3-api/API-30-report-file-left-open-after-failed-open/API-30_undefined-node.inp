@@ -1,0 +1,21 @@
+[TITLE]
+API-30: pipe P2 ends at node J9, which does not exist (input error 203)
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   50
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J9  1000    12    100    0      Open      ; J9 is undefined
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

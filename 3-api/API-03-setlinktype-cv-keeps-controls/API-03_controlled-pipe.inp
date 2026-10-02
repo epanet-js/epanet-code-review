@@ -1,0 +1,37 @@
+[TITLE]
+API-03: pipe P2 is set by a simple control and a rule; the test gives it a check valve
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     100
+ J2   0     100
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    12    100    0      Open
+
+[CONTROLS]
+ LINK P2 CLOSED AT TIME 2     ; sets P2
+
+[RULES]
+RULE 1
+IF JUNCTION J1 PRESSURE > 1000
+THEN PIPE P2 STATUS IS CLOSED
+
+RULE 2
+IF PIPE P2 FLOW > 1000
+THEN PIPE P1 STATUS IS CLOSED
+
+[TIMES]
+ Duration   4:00
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

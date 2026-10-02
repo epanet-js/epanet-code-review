@@ -1,0 +1,58 @@
+CRASH-29: keep rule time values out of undefined int and long casts
+
+Two functions converted a rule's time premise from double without a
+range check. gettimetxt() began with hours = (int)secs / 3600, which is
+undefined for 2^31 s or more when EN_saveinpfile writes the rule (x86-64
+then writes a garbled time). checktime() compared (long)p->value, which
+is undefined beyond the range of a long (2^31 s on Windows, about 9e18 s
+elsewhere) every time the rule is checked. gettimetxt() now tests the
+range on the double first, and checktime() compares the double itself.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-29_fix.patch
+
+diff --git a/src/rules.c b/src/rules.c
+index 1b009ad..66d197b 100644
+--- a/src/rules.c
++++ b/src/rules.c
+@@ -993,7 +993,8 @@ int checktime(Project *pr, Spremise *p)
+     Rules *rules = &pr->rules;
+ 
+     char flag;
+-    long t1, t2, x;
++    long t1, t2;
++    double x;
+ 
+     // Get start and end of rule evaluation time interval
+     if (p->variable == r_TIME)
+@@ -1008,8 +1009,9 @@ int checktime(Project *pr, Spremise *p)
+     }
+     else return (0);
+ 
+-    // Test premise's time
+-    x = (long)(p->value);
++    // Test premise's time (as a double: converting a very large time to
++    // long would be undefined)
++    x = p->value;
+     switch (p->relop)
+     {
+       // For inequality, test against current time
+@@ -1489,10 +1491,16 @@ void gettimetxt(double secs, char *timetxt)
+ //-----------------------------------------------------------------------------
+ {
+     int hours = 0, minutes = 0, seconds = 0;
+-    hours = (int)secs / 3600;
+-    if (hours > 24 * 7) sprintf(timetxt, "%.4f", secs / 3600.0);
++
++    // Times of 169 hours or more are written in decimal hours. Test the
++    // double, since (int)secs is undefined for 2^31 s or more.
++    if (secs < 0.0 || secs >= (24 * 7 + 1) * 3600.0)
++    {
++        sprintf(timetxt, "%.4f", secs / 3600.0);
++    }
+     else
+     {
++        hours = (int)secs / 3600;
+         minutes = (int)((secs - 3600 * hours) / 60);
+         seconds = (int)(secs - 3600 * hours - minutes * 60);
+         sprintf(timetxt, "%d:%02d:%02d", hours, minutes, seconds);

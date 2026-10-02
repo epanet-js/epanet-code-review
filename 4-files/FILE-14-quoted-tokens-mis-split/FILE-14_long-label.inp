@@ -1,0 +1,20 @@
+[TITLE]
+FILE-14: a map label whose quoted text contains spaces (923 characters)
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   5
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+
+[LABELS]
+;X-Coord  Y-Coord  "Label text"  Anchor node
+ 1000.00  2000.00  "North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main North reservoir outlet main"  J1
+
+[END]

@@ -1,0 +1,169 @@
+SIM-22: apply pump curve changes made while the solver is open
+
+A pump's head curve coefficients are derived only by validateproject()
+at EN_openH, so EN_setheadcurveindex and EN_setcurve had no effect on a
+running analysis, not even after EN_initH. EPANET 2.2 recomputed them
+in these functions (the fix for #550); PR #758 removed those calls.
+Move the per-pump code of validatepumps() into updatepumpparams() and
+call it from both functions while the solver is open. An invalid new
+head curve is refused and the pump keeps its old one.
+
+The GPV half of this issue (EN_GPV_CURVE while the solver is open) is
+fixed by SIM-21, which this patch requires. SIM-17 adds a block at the
+same place in EN_setcurve, so this patch is made on top of it.
+
+Requires: SIM-21 SIM-17
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-16,
+SIM-19, SIM-21 and SIM-17:
+    git apply CRASH-16_fix.patch
+    git apply SIM-19_fix.patch
+    git apply SIM-21_fix.patch
+    git apply SIM-17_fix.patch
+    git apply SIM-22_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index a5ab224..fe9992e 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4677,7 +4677,8 @@ int DLLEXPORT EN_setheadcurveindex(EN_Project p, int linkIndex, int curveIndex)
+ {
+     Network *net = &p->network;
+ 
+-    int pumpIndex;
++    int pumpIndex, oldCurve, errcode = 0;
++    double oldKm;
+     Spump *pump;
+ 
+     // Check for valid parameters
+@@ -4689,9 +4690,25 @@ int DLLEXPORT EN_setheadcurveindex(EN_Project p, int linkIndex, int curveIndex)
+     // Assign the new curve to the pump
+     pumpIndex = findpump(net, linkIndex);
+     pump = &net->Pump[pumpIndex];
++    oldCurve = pump->Hcurve;
++    oldKm = net->Link[linkIndex].Km;
+     pump->Hcurve = curveIndex;
+     net->Link[linkIndex].Km = 0.0;
+-    return 0;
++
++    // If the hydraulic solver is open, update the pump's curve
++    // coefficients now (otherwise EN_openH does this), keeping
++    // the old curve if the new one is not valid
++    if (p->hydraul.OpenHflag)
++    {
++        errcode = updatepumpparams(p, pumpIndex);
++        if (errcode)
++        {
++            pump->Hcurve = oldCurve;
++            net->Link[linkIndex].Km = oldKm;
++            updatepumpparams(p, pumpIndex);
++        }
++    }
++    return errcode;
+ }
+ 
+ /********************************************************************
+@@ -5367,7 +5384,7 @@ int DLLEXPORT EN_setcurve(EN_Project p, int index, double *xValues,
+ {
+     Network *net = &p->network;
+     Scurve *curve;
+-    int j;
++    int j, errcode;
+ 
+     // Check for valid arguments
+     if (!p->Openflag) return 102;
+@@ -5398,6 +5415,18 @@ int DLLEXPORT EN_setcurve(EN_Project p, int index, double *xValues,
+         net->Tank[j].V0 = tankvolume(p, j, net->Tank[j].H0);
+         net->Tank[j].Vmax = tankvolume(p, j, net->Tank[j].Hmax);
+     }
++
++    // If the hydraulic solver is open, update the coefficients
++    // of pumps that use the curve (otherwise EN_openH does this)
++    if (p->hydraul.OpenHflag)
++    {
++        for (j = 1; j <= net->Npumps; j++)
++        {
++            if (net->Pump[j].Hcurve != index) continue;
++            errcode = updatepumpparams(p, j);
++            if (errcode) return errcode;
++        }
++    }
+     return 0;
+ }
+ 
+diff --git a/src/funcs.h b/src/funcs.h
+index 7201aa0..15949dd 100755
+--- a/src/funcs.h
++++ b/src/funcs.h
+@@ -177,6 +177,10 @@ void    emitterheadloss(Project *, int, double *, double *);
+ void    demandheadloss(Project *, int, double, double, double *, double *);
+ double  pcvlosscoeff(Project *, int, double);
+ 
++// ------- VALIDATE.C -----------------
++
++int     updatepumpparams(Project *, int);
++
+ // ------- QUALITY.C --------------------
+ 
+ int     openqual(Project *);
+diff --git a/src/validate.c b/src/validate.c
+index f56d848..f295bc1 100644
+--- a/src/validate.c
++++ b/src/validate.c
+@@ -316,6 +316,32 @@ int constpowerpump(Project *pr, Spump *pump)
+     return 0;
+ }
+  
++int updatepumpparams(Project *pr, int i)
++/*
++**-------------------------------------------------------------------
++**  Input:   i = pump index
++**  Output:  returns an error code
++**  Purpose: computes a pump's head curve coefficients from its head
++**           curve or its constant power rating.
++**-------------------------------------------------------------------
++*/
++{
++    Network *net = &pr->network;
++    Spump *pump = &net->Pump[i];
++
++    // Pump has a designated pump curve
++    if (pump->Hcurve > 0)
++        return pumpcurvepump(pr, pump, &net->Curve[pump->Hcurve]);
++
++    // Pump has a constant power setting
++    if (net->Link[pump->Link].Km > 0.0)
++        return constpowerpump(pr, pump);
++
++    // Pump has no pump curve info assigned
++    pump->Ptype = NOCURVE;
++    return 226;
++}
++
+ int validatepumps(Project *pr)
+ /*
+ **-------------------------------------------------------------------
+@@ -332,22 +358,8 @@ int validatepumps(Project *pr)
+     
+     for (i = 1; i <= net->Npumps; i++)
+     {
+-        // Pump has a designated pump curve
+         pump = &net->Pump[i];
+-        if (pump->Hcurve > 0)
+-            errcode = pumpcurvepump(pr, pump, &net->Curve[pump->Hcurve]);
+-        
+-        // Pump has a constant power setting
+-        else if (net->Link[pump->Link].Km > 0.0)
+-            errcode = constpowerpump(pr, pump);
+-        
+-        // Pump has no pump curve info assigned
+-        else
+-        {
+-            pump->Ptype = NOCURVE;
+-            errcode = 226;
+-        }
+-        
++        errcode = updatepumpparams(pr, i);
+         if (errcode)
+         {
+             sprintf(pr->Msg, "Error %d: %s %s",

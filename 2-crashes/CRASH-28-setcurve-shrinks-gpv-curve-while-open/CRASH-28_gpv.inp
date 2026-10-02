@@ -1,0 +1,30 @@
+[TITLE]
+CRASH-28: reservoir R1 supplies 1000 gpm to J1 through GPV V1
+V1's curve C1 has two points; C2 is a one-point curve that no GPV may use.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     1000
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting
+ V1  R1  J1  12    GPV   C1
+
+[CURVES]
+;ID  Flow (gpm)  HeadLoss (ft)
+ C1  0           0
+ C1  2000        20
+ C2  500         10       ; one point only
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

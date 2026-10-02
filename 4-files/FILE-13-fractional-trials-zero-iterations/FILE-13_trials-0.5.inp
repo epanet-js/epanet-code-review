@@ -1,0 +1,24 @@
+[TITLE]
+FILE-13: reservoir R1 feeds junction J1; TRIALS is set to 0.5
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   500
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  5000    8     100
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+ Trials     0.5     ; must be at least 1; (int)0.5 is 0 trials
+
+[REPORT]
+ Status     Yes
+
+[END]

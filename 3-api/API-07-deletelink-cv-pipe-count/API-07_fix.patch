@@ -1,0 +1,27 @@
+API-07: count check-valve pipes as pipes when deleting a link
+
+EN_deletelink decremented Npipes only for links of type PIPE. A pipe
+with a check valve has type CVPIPE (0), which EN_addlink and the input
+parser count as a pipe (linkType <= PIPE), so each deleted check-valve
+pipe left the count one too high. The fix for #790 (commit d50c673)
+added the decrement; this extends it to CVPIPE.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-07_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..872ece2 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -3599,8 +3599,9 @@ int DLLEXPORT EN_deletelink(EN_Project p, int index, int actionCode)
+         if (net->Valve[i].Link > index) net->Valve[i].Link -= 1;
+     }
+ 
+-    // Reduce the number of pipes count by one if it is a pipe.
+-    if (linkType == PIPE)
++    // Reduce the number of pipes count by one if it is a pipe
++    // (with or without a check valve).
++    if (linkType <= PIPE)
+     {
+         net->Npipes--;
+     }

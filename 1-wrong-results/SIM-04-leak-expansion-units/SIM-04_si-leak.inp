@@ -1,0 +1,28 @@
+[TITLE]
+SIM-04: leak expansion in SI units. One 100 m pipe from R1 to J1 at 30 m of
+pressure head. Its only leakage parameter is an expansion rate of 1.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     0
+
+[RESERVOIRS]
+;ID   Head
+ R1   30
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  100     300   100    0      Open
+
+[LEAKAGE]
+;Pipe  Area  Expansion
+ P1     0     1          ; 1 sq mm per m of head, per 100 m of pipe
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     LPS
+ Headloss  H-W
+
+[END]

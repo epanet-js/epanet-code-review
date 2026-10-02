@@ -1,0 +1,38 @@
+WQ-02: give check-valve pipes volume and reactions in water quality
+
+initsegs() creates the initial volume segment only for links of type
+PIPE, and reactpipes() skips every link that is not of type PIPE. A
+pipe with a check valve has type CVPIPE (0), so it gets no segment and
+no reactions: water crosses it instantly and unchanged. Test for
+Type <= PIPE, as setreactflag() and the rest of the code base do for
+"any pipe".
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply WQ-02_fix.patch
+
+diff --git a/src/qualreact.c b/src/qualreact.c
+index 7ce6234..29dbff8 100644
+--- a/src/qualreact.c
++++ b/src/qualreact.c
+@@ -134,7 +134,7 @@ void reactpipes(Project *pr, long dt)
+     for (k = 1; k <= net->Nlinks; k++)
+     {
+         // Skip non-pipe links (pumps & valves)
+-        if (net->Link[k].Type != PIPE) continue;
++        if (net->Link[k].Type > PIPE) continue;
+         rsum = 0.0;
+         vsum = 0.0;
+ 
+diff --git a/src/qualroute.c b/src/qualroute.c
+index 2309ba8..2eed339 100644
+--- a/src/qualroute.c
++++ b/src/qualroute.c
+@@ -583,7 +583,7 @@ void initsegs(Project *pr)
+     {
+         qual->FirstSeg[k] = NULL;
+         qual->LastSeg[k] = NULL;
+-        if (net->Link[k].Type == PIPE)
++        if (net->Link[k].Type <= PIPE)
+         {
+             v = LINKVOL(k);
+             j = net->Link[k].N2;

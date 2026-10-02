@@ -1,0 +1,33 @@
+[TITLE]
+CRASH-16: the same network with the GPV in the input file, without its curve field
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     0
+ J2   0     100
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting
+ V1  J1  J2  12    GPV            ; no head loss curve given
+
+[CURVES]
+;ID  Flow  HeadLoss
+ C1  0     0
+ C1  1000  10
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

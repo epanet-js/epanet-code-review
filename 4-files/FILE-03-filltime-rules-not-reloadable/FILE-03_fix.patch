@@ -1,0 +1,33 @@
+FILE-03: write FILLTIME and DRAINTIME rule values in decimal hours
+
+The rule parser reads a FILLTIME or DRAINTIME value as a decimal number
+of hours, as the manual describes, but writepremise() wrote it as
+h:mm:ss, like a clock time. getfloat() rejects "1:30:00", so a saved
+file with such a rule failed to open with error 202. The writer now
+writes these two values as decimal hours with four decimals.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-03_fix.patch
+
+diff --git a/src/rules.c b/src/rules.c
+index 1b009ad..f104fd8 100644
+--- a/src/rules.c
++++ b/src/rules.c
+@@ -1414,11 +1414,15 @@ void writepremise(Spremise *p, FILE *f, Network *net)
+         switch (p->variable)
+         {
+         case r_CLOCKTIME:
+-        case r_DRAINTIME:
+-        case r_FILLTIME:
+         case r_TIME:
+             gettimetxt(p->value, s_value);
+             break;
++
++        // Fill and drain times are read back as decimal hours
++        case r_DRAINTIME:
++        case r_FILLTIME:
++            sprintf(s_value, "%.4f", p->value / 3600.0);
++            break;
+         default: sprintf(s_value, "%.4f", p->value);
+         }
+     }

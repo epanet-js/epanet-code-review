@@ -1,0 +1,69 @@
+API-19: keep stored pressure values when the specific gravity changes
+
+EN_setoption(EN_SP_GRAVITY) rescaled Ucf[PRESSURE] but left the values
+already stored as heads: emitter coefficients (always per psi in US
+units), the PDA minimum and required pressures, PRV/PSV/PBV settings,
+and the pressure levels and valve settings of simple controls. Their
+psi values then changed, so the model depended on whether the gravity
+was set before or after them. Scale these heads by the ratio of the old
+to the new gravity, so the model matches an input file that has the new
+gravity.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-19_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..e3527bb 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1361,11 +1361,50 @@ int DLLEXPORT EN_setoption(EN_Project p, int option, double value)
+ 
+     case EN_SP_GRAVITY:
+         if (value <= 0.0) return 213;
++
++        // Values already entered in psi, kPa or bar keep those values
++        // (as in an input file), so the heads stored for them are scaled
++        // by the ratio of the old to the new specific gravity
++        ucf = hyd->SpGrav / value;
++        if (p->parser.Unitsflag == US)
++        {
++            // Emitter coeffs. are per psi in US units
++            for (i = 1; i <= Njuncs; i++) net->Node[i].Ke *= ucf;
++        }
+         if (p->parser.Pressflag == PSI || 
+             p->parser.Pressflag == KPA || 
+             p->parser.Pressflag == BAR)
+         {
+             Ucf[PRESSURE] *= (value / hyd->SpGrav);
++            hyd->Pmin *= ucf;
++            hyd->Preq *= ucf;
++
++            // Pressure settings of PRVs, PSVs and PBVs
++            for (i = 1; i <= net->Nlinks; i++)
++            {
++                j = net->Link[i].Type;
++                if (j != PRV && j != PSV && j != PBV) continue;
++                if (net->Link[i].Kc != MISSING) net->Link[i].Kc *= ucf;
++                if (net->Link[i].InitSetting != MISSING)
++                    net->Link[i].InitSetting *= ucf;
++            }
++
++            // Simple controls on junction pressure or valve pressure setting
++            for (i = 1; i <= net->Ncontrols; i++)
++            {
++                j = net->Control[i].Node;
++                if ((net->Control[i].Type == LOWLEVEL ||
++                     net->Control[i].Type == HILEVEL) && j > 0 && j <= Njuncs)
++                {
++                    net->Control[i].Grade = net->Node[j].El +
++                        (net->Control[i].Grade - net->Node[j].El) * ucf;
++                }
++                j = net->Control[i].Link;
++                if (j <= 0 || net->Control[i].Setting == MISSING) continue;
++                j = net->Link[j].Type;
++                if (j == PRV || j == PSV || j == PBV)
++                    net->Control[i].Setting *= ucf;
++            }
+         }
+         hyd->SpGrav = value;
+         break;

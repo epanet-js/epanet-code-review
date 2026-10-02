@@ -1,0 +1,42 @@
+[TITLE]
+SIM-17: three tanks, each draining 200 gpm into its own junction
+T1 is a cylinder; T2 and T3 have volume curves C2 and C3 (2000 ft2 of area),
+which replace their diameters.
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     200
+ J2  0     200
+ J3  0     200
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol  VolCurve
+ T1  100   10         0         20        50        0                  ; cylinder
+ T2  100   10         0         20        50        0       C2         ; curve doubled by EN_setcurve
+ T3  100   10         0         20        50        0       C3         ; curve doubled by EN_setcurvevalue
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  T1  J1  1000    12    100    0      Open
+ P2  T2  J2  1000    12    100    0      Open
+ P3  T3  J3  1000    12    100    0      Open
+
+[CURVES]
+;ID  Level  Volume
+ C2  0      0
+ C2  20     40000
+ C3  0      0
+ C3  20     40000
+
+[TIMES]
+ Duration            1:00
+ Hydraulic Timestep  1:00
+
+[REPORT]
+ Summary  No
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

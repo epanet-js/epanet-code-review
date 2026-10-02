@@ -1,0 +1,25 @@
+API-02: shift the trace node index when a junction is added
+
+EN_addnode shifts every tank and reservoir up one place when it adds a
+junction, but not quality.TraceNode, so a trace from a tank or
+reservoir silently runs from a different node. The shift was added by
+PR #829 (commit a5bce31) and lost two days later when commit 7a16739
+(PR #831) overwrote epanet.c. This restores it, next to the shift of
+the Tank array and with the same test that is used for links.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-02_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..f0ccb4c 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1975,6 +1975,8 @@ int DLLEXPORT EN_addnode(EN_Project p, const char *id, int nodeType, int *index)
+         {
+             net->Tank[i].Node += 1;
+         }
++        // shift index of water quality trace node, if necessary
++        if (qual->TraceNode > net->Njuncs - 1) qual->TraceNode += 1;
+         // shift indices of Links, if necessary
+         for (i = 1; i <= net->Nlinks; i++)
+         {

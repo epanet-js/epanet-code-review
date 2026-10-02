@@ -1,0 +1,43 @@
+FILE-13: reject TRIALS below 1 and initialise relerr
+
+optionvalue() only required TRIALS to be above 0 and then stored
+(int)y, so a value such as 0.5 gave MaxIter = 0. hydsolve() then ran no
+trials: it returned the initial guess as the solution and left relerr
+unset, which runhyd() went on to read. TRIALS below 1 is now rejected
+with error 213, as EN_setoption(EN_TRIALS) already does. relerr is also
+initialised in runhyd(), so hydsolve() never passes back an unset value
+(it also stores it in hyd->RelativeError when the first trial fails).
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-13_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..564659c 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -202,7 +202,7 @@ int   runhyd(Project *pr, long *t)
+ 
+     int   iter;          // Iteration count
+     int   errcode;       // Error code
+-    double relerr;       // Solution accuracy
++    double relerr = 0.0; // Solution accuracy
+ 
+     // Re-initialize leakage coeffs. if parameters have changed
+     if (hyd->LeakageChanged)
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..27b1c40 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -2164,7 +2164,11 @@ int optionvalue(Project *pr, int n)
+     // Assign value to all other options
+     if (match(tok0, w_VISCOSITY))     hyd->Viscos = y;
+     else if (match(tok0, w_SPECGRAV)) hyd->SpGrav = y;
+-    else if (match(tok0, w_TRIALS))   hyd->MaxIter = (int)y;
++    else if (match(tok0, w_TRIALS))
++    {
++        if (y < 1.0) return setError(parser, nvalue, 213);
++        hyd->MaxIter = (int)y;
++    }
+     else if (match(tok0, w_ACCURACY))
+     {
+         y = MAX(y, 1.e-5);

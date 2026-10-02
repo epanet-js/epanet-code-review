@@ -1,0 +1,43 @@
+API-28: round control times set through the API to the nearest second
+
+setcontrol(), used by EN_addcontrol and EN_setcontrol, converts the time
+of a TIMER or TIMEOFDAY control with (long)level, which truncates. A
+time computed in hours by the caller, such as 8.2 * 3600 =
+29519.999999999996, became 29519 s, so the control acted a second
+early. Before commit a9079b0 the API rounded these times. Round again,
+and first refuse (error 202) a time that is negative, not a number, or
+too large for a long, such as 1e300, whose conversion was undefined
+behaviour. The limit is half the range of a long, as for [TIMES].
+
+Requires: API-22
+
+Apply from the root of an EPANET checkout at 83e25bb, after API-22:
+    git apply API-22_fix.patch
+    git apply API-28_fix.patch
+
+diff --git a/src/project.c b/src/project.c
+index 8b89c41..9b831b2 100644
+--- a/src/project.c
++++ b/src/project.c
+@@ -12,6 +12,7 @@
+ */
+ 
+ #include <stdlib.h>
++#include <limits.h>
+ #include <stdio.h>
+ #include <string.h>
+ #include <math.h> 
+@@ -1377,8 +1378,11 @@ int setcontrol(EN_Project p, int type, int linkIndex, double setting,
+     }
+     else if (type == TIMER || type == TIMEOFDAY)
+     {
+-        t = (long)level;
+-        if (t < 0) return 202;
++        // Time in seconds must be a number from 0 up to half the range
++        // of a long, so that times can be added without overflow (NaN
++        // fails this test)
++        if (!(level >= 0.0 && level < LONG_MAX / 2.0)) return 202;
++        t = (long)(level + 0.5);
+         if (type == TIMEOFDAY) t %= SECperDAY;
+     }
+     

@@ -1,0 +1,165 @@
+CRASH-14: return 102 from rule, control and ID calls on a closed project
+
+EN_close frees the network arrays but kept the node, link, control and
+rule counts, and 17 toolkit functions had no Openflag check, so their
+index checks passed and they used the freed memory. A second EN_close
+freed everything again. Each of those functions now returns 102 when no
+project is open, and EN_close calls initpointers() after freedata(), so
+the counts are zero and the pointers NULL once the project is closed.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-14_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..4b31273 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -360,6 +360,10 @@ int DLLEXPORT EN_close(EN_Project p)
+     // Free all project data
+     freedata(p);
+ 
++    // Reset the counts and pointers to the freed data, so that a closed
++    // project looks the same as one that was never opened
++    initpointers(p);
++
+     // Close output file
+     closeoutfile(p);
+ 
+@@ -2207,6 +2211,7 @@ int DLLEXPORT EN_setnodeid(EN_Project p, int index, const char *newid)
+     Network *net = &p->network;
+ 
+     // Check for valid arguments
++    if (!p->Openflag) return 102;
+     if (index <= 0 || index > net->Nnodes) return 203;
+     if (!namevalid(newid)) return 252;
+ 
+@@ -3692,6 +3697,7 @@ int DLLEXPORT EN_setlinkid(EN_Project p, int index, const char *newid)
+     Network *net = &p->network;
+ 
+     // Check for valid arguments
++    if (!p->Openflag) return 102;
+     if (index <= 0 || index > net->Nlinks) return 204;
+     if (!namevalid(newid)) return 252;
+ 
+@@ -3827,6 +3833,8 @@ int DLLEXPORT EN_setlinknodes(EN_Project p, int index, int node1, int node2)
+     Network *net = &p->network;
+     int type, errcode;
+ 
++    if (!p->Openflag) return 102;
++
+     // Cannot modify network structure while solvers are active
+     if (p->hydraul.OpenHflag || p->quality.OpenQflag) return 262;
+ 
+@@ -5441,6 +5449,7 @@ int DLLEXPORT EN_deletecontrol(EN_Project p, int index)
+     Network *net = &p->network;
+     int i;
+ 
++    if (!p->Openflag) return 102;
+     if (index <= 0 || index > net->Ncontrols) return 241;
+     for (i = index; i <= net->Ncontrols - 1; i++)
+     {
+@@ -5635,6 +5644,8 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+     char *nextline;
+     char line2[MAXLINE+1];
+ 
++    if (!p->Openflag) return 102;
++
+     // Resize rules array
+     net->Rule = (Srule *)realloc(net->Rule, (net->Nrules + 2)*sizeof(Srule));
+     rules->Errcode = 0;
+@@ -5682,6 +5693,7 @@ int DLLEXPORT EN_deleterule(EN_Project p, int index)
+ **----------------------------------------------------------------
+ */
+ {
++    if (!p->Openflag) return 102;
+     if (index < 1 || index > p->network.Nrules) return 257;
+     deleterule(p, index);
+     return 0;
+@@ -5707,6 +5719,7 @@ int DLLEXPORT EN_getrule(EN_Project p, int index, int *nPremises,
+     Spremise *premise;
+     Saction *action;
+ 
++    if (!p->Openflag) return 102;
+     if (index < 1 || index > net->Nrules) return 257;
+     *priority = (double)p->network.Rule[index].priority;
+ 
+@@ -5776,6 +5789,7 @@ int DLLEXPORT EN_getpremise(EN_Project p, int ruleIndex, int premiseIndex,
+     Spremise *premises;
+     Spremise *premise;
+ 
++    if (!p->Openflag) return 102;
+     if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+     premises = p->network.Rule[ruleIndex].Premises;
+@@ -5815,6 +5829,7 @@ int DLLEXPORT EN_setpremise(EN_Project p, int ruleIndex, int premiseIndex,
+     Spremise *premises;
+     Spremise *premise;
+ 
++    if (!p->Openflag) return 102;
+     if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+     premises = p->network.Rule[ruleIndex].Premises;
+@@ -5846,6 +5861,7 @@ int DLLEXPORT EN_setpremiseindex(EN_Project p, int ruleIndex, int premiseIndex,
+     Spremise *premises;
+     Spremise *premise;
+ 
++    if (!p->Openflag) return 102;
+     if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+     premises = p->network.Rule[ruleIndex].Premises;
+@@ -5872,6 +5888,7 @@ int DLLEXPORT EN_setpremisestatus(EN_Project p, int ruleIndex, int premiseIndex,
+     Spremise *premises;
+     Spremise *premise;
+ 
++    if (!p->Openflag) return 102;
+     if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+     premises = p->network.Rule[ruleIndex].Premises;
+@@ -5897,6 +5914,7 @@ int DLLEXPORT EN_setpremisevalue(EN_Project p, int ruleIndex, int premiseIndex,
+     Spremise *premises;
+     Spremise *premise;
+ 
++    if (!p->Openflag) return 102;
+     if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+     premises = p->network.Rule[ruleIndex].Premises;
+@@ -5923,6 +5941,7 @@ int DLLEXPORT EN_getthenaction(EN_Project p, int ruleIndex, int actionIndex,
+     Saction *actions;
+     Saction *action;
+ 
++    if (!p->Openflag) return 102;
+     if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+     actions = p->network.Rule[ruleIndex].ThenActions;
+@@ -5951,6 +5970,7 @@ int DLLEXPORT EN_setthenaction(EN_Project p, int ruleIndex, int actionIndex,
+     Saction *actions;
+     Saction *action;
+ 
++    if (!p->Openflag) return 102;
+     if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+     actions = p->network.Rule[ruleIndex].ThenActions;
+@@ -5979,6 +5999,7 @@ int DLLEXPORT EN_getelseaction(EN_Project p, int ruleIndex, int actionIndex,
+   Saction *actions;
+   Saction *action;
+ 
++  if (!p->Openflag) return 102;
+   if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+   actions = p->network.Rule[ruleIndex].ElseActions;
+@@ -6007,6 +6028,7 @@ int DLLEXPORT EN_setelseaction(EN_Project p, int ruleIndex, int actionIndex,
+   Saction *actions;
+   Saction *action;
+ 
++  if (!p->Openflag) return 102;
+   if (ruleIndex < 1 || ruleIndex > p->network.Nrules) return 257;
+ 
+   actions = p->network.Rule[ruleIndex].ElseActions;
+@@ -6029,6 +6051,7 @@ int DLLEXPORT EN_setrulepriority(EN_Project p, int index, double priority)
+ **-----------------------------------------------------------------------------
+ */
+ {
++    if (!p->Openflag) return 102;
+     if (index <= 0 || index > p->network.Nrules)  return 257;
+     p->network.Rule[index].priority = priority;
+     return 0;

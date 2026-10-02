@@ -1,0 +1,84 @@
+SIM-21: keep a GPV's curve index in one place, Link.Kc
+
+The curve index of a GPV was held in Link.Kc (what EN_GPV_CURVE and
+EN_deletecurve update), Link.InitSetting (copied into LinkSetting, which
+gpvcoeff() read) and Control.Setting (copied into LinkSetting when a
+control fired). Deleting another curve or assigning a new one left the
+solver on a different curve from the one reported. Make gpvcoeff() read
+Kc; keep InitSetting (what saveinpfile writes) equal to Kc in
+adjustcurves() and EN_setlinkvalue, also while the solver is open; and
+stop controls from writing a curve index into a GPV's setting.
+
+Deleting a GPV's own curve now leaves it with no curve, which CRASH-16
+reports at EN_openH. While the solver is open, EN_GPV_CURVE refuses
+curve 0 with error 206, since the solver reads Kc directly.
+
+Requires: CRASH-16 SIM-19
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-16
+and SIM-19:
+    git apply CRASH-16_fix.patch
+    git apply SIM-19_fix.patch
+    git apply SIM-21_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 001b3d1..61dc837 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4354,8 +4354,11 @@ int DLLEXPORT EN_setlinkvalue(EN_Project p, int index, int property, double valu
+         {
+             curveIndex = ROUND(value);
+             if (curveIndex < 0 || curveIndex > net->Ncurves) return 206;
++            // The solver uses Kc, so it must stay a valid curve while open
++            if (curveIndex == 0 && hyd->OpenHflag) return 206;
+             Link[index].Kc = curveIndex;
+-            if (hyd->OpenHflag == FALSE) Link[index].InitSetting = curveIndex;
++            Link[index].InitSetting = curveIndex;
++            if (hyd->OpenHflag) hyd->LinkSetting[index] = curveIndex;
+             if (curveIndex > 0) net->Curve[curveIndex].Type = HLOSS_CURVE;
+         }
+         break;
+diff --git a/src/hydcoeffs.c b/src/hydcoeffs.c
+index d0b03c2..10066dc 100644
+--- a/src/hydcoeffs.c
++++ b/src/hydcoeffs.c
+@@ -970,11 +970,11 @@ void  gpvcoeff(Project *pr, int k)
+ 
+     // Otherwise utilize segment of head loss curve
+     // bracketing current flow (curve index is stored
+-    // in valve's setting)
++    // in valve's Kc property)
+     else
+     {
+         // Index of valve's head loss curve
+-        i = (int)ROUND(hyd->LinkSetting[k]);
++        i = (int)ROUND(pr->network.Link[k].Kc);
+ 
+         // Adjusted flow rate
+         q = ABS(hyd->LinkFlow[k]);
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..3c78fec 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -625,7 +625,8 @@ int  controls(Project *pr)
+             s2 = control->Status;
+             k1 = hyd->LinkSetting[k];
+             k2 = k1;
+-            if (link->Type > PIPE) k2 = control->Setting;
++            // (a GPV control only changes status; its curve index is in Kc)
++            if (link->Type > PIPE && link->Type != GPV) k2 = control->Setting;
+ 
+             // Check if a re-opened pump needs its flow reset
+             if (link->Type == PUMP && s1 == CLOSED && s2 == OPEN)
+diff --git a/src/project.c b/src/project.c
+index 9d7c7f1..195bb3f 100644
+--- a/src/project.c
++++ b/src/project.c
+@@ -1255,6 +1255,7 @@ void adjustcurves(Network *network, int index)
+             curve = INT(network->Link[k].Kc);
+             adjustcurve(&curve, index);
+             network->Link[k].Kc = curve;
++            network->Link[k].InitSetting = curve;
+         }
+     }
+ }

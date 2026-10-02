@@ -1,0 +1,40 @@
+[TITLE]
+API-13: a 3-hour run that halts at 1 hour, when the demand jumps 100,000-fold
+With TRIALS 3 and UNBALANCED STOP, hour 0 converges and hour 1 does not.
+
+[JUNCTIONS]
+;ID  Elev  Demand  Pattern
+ J1  0     100     P1
+ J2  0     100     P1
+
+[RESERVOIRS]
+;ID  Head
+ R1  2000
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    6     100    0      Open
+ P3  R1  J2  2000    8     100    0      Open
+
+[PATTERNS]
+;ID  Multipliers
+ P1  0.001  100           ; 0.1 gpm at hour 0, 10,000 gpm at hour 1
+
+[TIMES]
+ Duration            3:00
+ Hydraulic Timestep  1:00
+ Pattern Timestep    1:00
+ Report Timestep     1:00
+ Statistic           Average
+
+[REPORT]
+ Summary  No
+
+[OPTIONS]
+ Units       GPM
+ Headloss    H-W
+ Trials      3
+ Unbalanced  Stop
+
+[END]

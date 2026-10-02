@@ -1,0 +1,38 @@
+SIM-06: stop saveenergy() overwriting the peak demand Emax
+
+saveenergy() stored Emax * Dcost back into hyd->Emax, so writeenergy(),
+which multiplies by Dcost again, reported peak kW x Dcost^2, and every
+further EN_solveQ or EN_saveH multiplied it once more. inithyd() also
+never reset Emax, so a new hydraulic run kept the old peak. Write the
+charge to the output file from a local value and reset Emax to 0 in
+inithyd(), next to the other pump energy totals.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-06_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..5029069 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -168,6 +168,7 @@ void inithyd(Project *pr, int initflag)
+         pump->Energy.CurrentPower = 0.0;
+         pump->Energy.CurrentEffic = 0.0;
+     }
++    hyd->Emax = 0.0;
+     
+     // Initialize flow balance
+     startflowbalance(pr);
+diff --git a/src/output.c b/src/output.c
+index 5ecd743..2aea647 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -321,8 +321,7 @@ int saveenergy(Project *pr)
+     }
+ 
+     // ... compute and save demand charge
+-    hyd->Emax = hyd->Emax * hyd->Dcost;
+-    x[0] = (REAL4)hyd->Emax;
++    x[0] = (REAL4)(hyd->Emax * hyd->Dcost);
+     if (fwrite(&x[0], sizeof(REAL4), 1, outFile) < 1) return 308;
+     return (0);
+ }

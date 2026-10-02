@@ -1,0 +1,18 @@
+[TITLE]
+FILE-11: junction J1 has a comment of 1103 characters
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   5       ;Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B. Customer meter 4471-B.
+ J2   100   5
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+ P2  J1  J2  1000    12    100
+
+[END]

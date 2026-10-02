@@ -1,0 +1,32 @@
+FILE-18: round rule premise times to whole seconds
+
+newpremise() stored a SYSTEM TIME or CLOCKTIME premise as hour() * 3600,
+which is not a whole number for many clock times: 8:00:01 becomes
+28800.999999999996 s. checktime() truncates it to 28800 s, so the rule
+can fire a rule step early, and gettimetxt() writes it back as 8:00:00.
+The time is now rounded to the nearest second, as timedata() does for
+[TIMES] and the FILE-05 fix does for [CONTROLS].
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-18_fix.patch
+
+diff --git a/src/rules.c b/src/rules.c
+index 1b009ad..8b43849 100644
+--- a/src/rules.c
++++ b/src/rules.c
+@@ -14,6 +14,7 @@
+ #include <stdlib.h>
+ #include <stdio.h>
+ #include <string.h>
++#include <math.h>
+ 
+ #include "types.h"
+ #include "funcs.h"
+@@ -824,6 +825,7 @@ int newpremise(Project *pr, int logop)
+         if (parser->Ntokens == 6) x = hour(Tok[4], Tok[5]) * 3600.;
+         else                      x = hour(Tok[4], "") * 3600.;
+         if (x < 0.0) return 202;
++        x = floor(x + 0.5);  // whole seconds, e.g. 8:00:01 is 28800.999...
+     }
+     else if ((k = findmatch(Tok[parser->Ntokens - 1], Value)) > IS_NUMBER) s = k;
+     else

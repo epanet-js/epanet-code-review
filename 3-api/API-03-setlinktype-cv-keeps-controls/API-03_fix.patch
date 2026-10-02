@@ -1,0 +1,54 @@
+API-03: delete controls that set a pipe given a check valve
+
+The PIPE to CVPIPE fast path in EN_setlinktype only changed the link's
+type, so simple controls and rule actions that set the pipe stayed in
+place, although a check valve cannot be controlled (error 207 from the
+parser, EN_addcontrol and EN_addrule). A file saved afterwards could not
+be opened. The fast path now deletes those controls and rules first.
+With EN_CONDITIONAL the call already returns 261 before this point.
+Rules that only test the pipe in a premise are kept.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-03_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..f1edc62 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -3743,6 +3743,8 @@ int DLLEXPORT EN_setlinktype(EN_Project p, int *index, int linkType, int actionC
+     char id2[MAXID + 1];
+     int errcode;
+     int oldType;
++    int k;
++    Saction *a;
+ 
+     // Cannot modify network structure while solvers are active
+     if (!p->Openflag) return 102;
+@@ -3769,6 +3771,27 @@ int DLLEXPORT EN_setlinktype(EN_Project p, int *index, int linkType, int actionC
+         if (actionCode > 0) return 261;
+     }
+ 
++    // A check valve cannot be controlled, so delete any simple controls
++    // and rules that set a pipe which is given one
++    if (oldType == PIPE && linkType == CVPIPE)
++    {
++        for (k = net->Ncontrols; k >= 1; k--)
++        {
++            if (net->Control[k].Link == i) EN_deletecontrol(p, k);
++        }
++        for (k = net->Nrules; k >= 1; k--)
++        {
++            a = net->Rule[k].ThenActions;
++            while (a != NULL && a->link != i) a = a->next;
++            if (a == NULL)
++            {
++                a = net->Rule[k].ElseActions;
++                while (a != NULL && a->link != i) a = a->next;
++            }
++            if (a != NULL) deleterule(p, k);
++        }
++    }
++
+     // Pipe changing from or to having a check valve
+     if (oldType <= PIPE && linkType <= PIPE)
+     {

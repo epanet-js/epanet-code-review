@@ -1,0 +1,26 @@
+API-06: reject a link whose start and end nodes are the same
+
+EN_addlink did not check that its two end nodes differ, although
+EN_setlinknodes and the input file parser reject a self-loop with error
+222. The self-loop puts a junction in its own adjacency list, and
+genmmd() then reads past a heap buffer when EN_openH orders the nodes.
+EN_addlink now returns 222. This is the same check that upstream PR
+#940 added after 83e25bb.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-06_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..2da8509 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -3425,6 +3425,9 @@ int DLLEXPORT EN_addlink(EN_Project p, const char *id, int linkType,
+     n2 = hashtable_find(net->NodeHashTable, toNode);
+     if (n1 == 0 || n2 == 0) return 203;
+ 
++    // Check that nodes are not the same
++    if (n1 == n2) return 222;
++
+     // Check that valve link has legal connections
+     if (linkType > PUMP)
+     {

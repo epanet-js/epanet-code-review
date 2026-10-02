@@ -1,0 +1,28 @@
+SIM-11: end the last hydraulic time step at the simulation duration
+
+timestep() shortened the hydraulic step for pattern, reporting, tank and
+control events, but not for the end of the simulation. When the duration
+was not a multiple of the step, the last step ran past it: a solution
+was computed and saved after the end, addenergy() counted the whole
+step while saveenergy() divided by the duration, and the water quality
+solver, which stops once the hydraulic time passes the duration, ended
+one step early. Limit the step to the time left, Dur - Htime.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-11_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..6d32c0a 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -672,6 +672,10 @@ long  timestep(Project *pr)
+     t = time->Rtime - time->Htime;
+     if (t > 0 && t < tstep) tstep = t;
+ 
++    // Revise time step so that it does not go past the end of the simulation
++    t = time->Dur - time->Htime;
++    if (t > 0 && t < tstep) tstep = t;
++
+     // Revise time step based on smallest time to fill or drain a tank
+     tanktimestep(pr, &tstep);
+ 

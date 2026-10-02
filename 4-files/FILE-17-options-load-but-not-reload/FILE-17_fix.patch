@@ -1,0 +1,84 @@
+FILE-17: make every accepted [OPTIONS] value survive a save and reload
+
+optionvalue() accepted CHECKFREQ and MAXCHECK between 0 and 1 and stored
+(int)y = 0, which the saved file then wrote as 0 and the parser refused;
+with 0 the periodic status checks never run. They are now refused below
+1, as TRIALS is. saveinpfile() wrote eight option values with 4, 6 or 8
+fixed decimals, so a small value was saved as 0: the copy failed to open
+(SPECIFIC GRAVITY, DEMAND MULTIPLIER, EMITTER EXPONENT) or opened with 0
+(TOLERANCE, DAMPLIMIT, HEADERROR, FLOWCHANGE, PRESSURE EXPONENT). These
+are now written with %.10g, as FILE-07 does for other small values.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-17_fix.patch
+
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..95f90cd 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -726,26 +726,26 @@ int saveinpfile(Project *pr, const char *fname)
+ 
+     if (hyd->DefPat > 0)
+         fprintf(f, "\n PATTERN             %s", net->Pattern[hyd->DefPat].ID);
+-    fprintf(f, "\n DEMAND MULTIPLIER   %-.4f", hyd->Dmult);
+-    fprintf(f, "\n EMITTER EXPONENT    %-.4f", 1.0 / hyd->Qexp);
++    fprintf(f, "\n DEMAND MULTIPLIER   %-.10g", hyd->Dmult);
++    fprintf(f, "\n EMITTER EXPONENT    %-.10g", 1.0 / hyd->Qexp);
+     fprintf(f, "\n BACKFLOW ALLOWED    %s", BackflowTxt[hyd->EmitBackFlag]);
+     fprintf(f, "\n VISCOSITY           %-.6f", hyd->Viscos / VISCOS);
+     fprintf(f, "\n DIFFUSIVITY         %-.6f", qual->Diffus / DIFFUS);
+-    fprintf(f, "\n SPECIFIC GRAVITY    %-.6f", hyd->SpGrav);
++    fprintf(f, "\n SPECIFIC GRAVITY    %-.10g", hyd->SpGrav);
+     fprintf(f, "\n TRIALS              %-d", hyd->MaxIter);
+     fprintf(f, "\n ACCURACY            %-.8f", hyd->Hacc);
+-    fprintf(f, "\n TOLERANCE           %-.8f", qual->Ctol * pr->Ucf[QUALITY]);
++    fprintf(f, "\n TOLERANCE           %-.10g", qual->Ctol * pr->Ucf[QUALITY]);
+     fprintf(f, "\n CHECKFREQ           %-d", hyd->CheckFreq);
+     fprintf(f, "\n MAXCHECK            %-d", hyd->MaxCheck);
+-    fprintf(f, "\n DAMPLIMIT           %-.8f", hyd->DampLimit);
++    fprintf(f, "\n DAMPLIMIT           %-.10g", hyd->DampLimit);
+     if (hyd->HeadErrorLimit > 0.0)
+     {
+-        fprintf(f, "\n HEADERROR           %-.8f",
++        fprintf(f, "\n HEADERROR           %-.10g",
+                 hyd->HeadErrorLimit * pr->Ucf[HEAD]);
+     }
+     if (hyd->FlowChangeLimit > 0.0)
+     {
+-        fprintf(f, "\n FLOWCHANGE          %-.8f",
++        fprintf(f, "\n FLOWCHANGE          %-.10g",
+                 hyd->FlowChangeLimit * pr->Ucf[FLOW]);
+     }
+     if (hyd->DemandModel == PDA)
+@@ -753,7 +753,7 @@ int saveinpfile(Project *pr, const char *fname)
+         fprintf(f, "\n DEMAND MODEL        PDA");
+         fprintf(f, "\n MINIMUM PRESSURE    %-.4f", hyd->Pmin * pr->Ucf[PRESSURE]);
+         fprintf(f, "\n REQUIRED PRESSURE   %-.4f", hyd->Preq * pr->Ucf[PRESSURE]);
+-        fprintf(f, "\n PRESSURE EXPONENT   %-.4f", hyd->Pexp);
++        fprintf(f, "\n PRESSURE EXPONENT   %-.10g", hyd->Pexp);
+     }
+ 
+     // Write [REPORT] section
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..1028d63 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -2178,8 +2178,16 @@ int optionvalue(Project *pr, int n)
+         if (y >= 1.0) return 213;
+         hyd->RQtol = y;
+     }
+-    else if (match(tok0, w_CHECKFREQ)) hyd->CheckFreq = (int)y;
+-    else if (match(tok0, w_MAXCHECK))  hyd->MaxCheck = (int)y;
++    else if (match(tok0, w_CHECKFREQ))
++    {
++        if (y < 1.0) return setError(parser, nvalue, 213);
++        hyd->CheckFreq = (int)y;
++    }
++    else if (match(tok0, w_MAXCHECK))
++    {
++        if (y < 1.0) return setError(parser, nvalue, 213);
++        hyd->MaxCheck = (int)y;
++    }
+     else if (match(tok0, w_EMITTER))   hyd->Qexp = 1.0 / y;
+     else if (match(tok0, w_DEMAND))    hyd->Dmult = y;
+     else return 201;

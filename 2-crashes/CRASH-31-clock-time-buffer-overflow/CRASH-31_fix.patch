@@ -1,0 +1,49 @@
+CRASH-31: size the clock-time buffers for any time a long can hold
+
+clocktime() writes a time as "h:mm:ss" into Report.Atime, which has
+room for 12 characters. From 1,000,000 hours on, the text is 13 or more
+characters: the terminator overwrites Report.Rpt1Fname, the report
+file's name, and writehydstat() overflows its own 13-byte copy on the
+stack. clocktime() also cast the hours to int. Atime now has room for
+any long number of seconds (25 characters), writehydstat() sizes its
+copy from it, and clocktime() prints the hours as a long.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-31_fix.patch
+
+diff --git a/src/report.c b/src/report.c
+index 2ea72a8..76d6859 100644
+--- a/src/report.c
++++ b/src/report.c
+@@ -349,7 +349,7 @@ void writehydstat(Project *pr, int iter, double relerr)
+   int i, n;
+   double *NodeDemand;
+   char s1[MAXLINE + 1];
+-  char atime[13];
++  char atime[sizeof(rpt->Atime)];
+   StatusType newstat;
+   Stank *Tank = net->Tank;
+   Slink *Link = net->Link;
+@@ -1527,7 +1527,7 @@ char *clocktime(char *atime, long seconds)
+     h = seconds / 3600;
+     m = seconds % 3600 / 60;
+     s = seconds - 3600 * h - 60 * m;
+-    sprintf(atime, "%01d:%02d:%02d", (int)h, (int)m, (int)s);
++    sprintf(atime, "%01ld:%02ld:%02ld", h, m, s);
+     return atime;
+ }
+ 
+diff --git a/src/types.h b/src/types.h
+index b35c5cd..025b091 100755
+--- a/src/types.h
++++ b/src/types.h
+@@ -664,7 +664,8 @@ typedef struct {
+     PageNum;               // Current page number
+ 
+   char
+-    Atime[13],             // Clock time (hrs:min:sec)
++    Atime[26],             // Clock time (hrs:min:sec), long enough
++                           // for any long number of seconds
+     Rpt1Fname[MAXFNAME+1], // Primary report file name
+     Rpt2Fname[MAXFNAME+1], // Secondary report file name
+     DateStamp[26];         // Current date & time

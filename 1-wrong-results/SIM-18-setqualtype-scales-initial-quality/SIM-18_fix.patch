@@ -1,0 +1,63 @@
+SIM-18: keep initial quality and Climit in user units in EN_setqualtype
+
+Node initial quality (C0) and the limiting concentration (Climit) are
+stored as user value / Ucf[QUALITY], and Ucf[QUALITY] is 1/28.317 for a
+chemical and 1 otherwise. EN_setqualtype rescaled C0 only when switching
+from CHEM to AGE or TRACE, and never rescaled Climit. Switching to CHEM
+therefore divided initial quality by 28.317, and Climit read 28.317
+times too high after leaving CHEM. Rescale C0 for every switch, and
+convert Climit the same way as the tolerance Ctol next to it.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-18_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..768b578 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1847,7 +1847,7 @@ int DLLEXPORT EN_setqualtype(EN_Project p, int qualType, const char *chemName,
+     Quality *qual = &p->quality;
+ 
+     double *Ucf = p->Ucf;
+-    int i, oldQualFlag, traceNodeIndex = 0;
++    int i, traceNodeIndex = 0;
+     double ccf = 1.0;
+ 
+     if (!p->Openflag) return 102;
+@@ -1860,9 +1860,9 @@ int DLLEXPORT EN_setqualtype(EN_Project p, int qualType, const char *chemName,
+     }
+ 
+     qual->TraceNode = traceNodeIndex;
+-    oldQualFlag = qual->Qualflag;
+     qual->Qualflag = qualType;
+     qual->Ctol *= Ucf[QUALITY];
++    qual->Climit *= Ucf[QUALITY];
+     if (qual->Qualflag == CHEM) // Chemical analysis
+     {
+         strncpy(qual->ChemName, chemName, MAXID);
+@@ -1885,20 +1885,18 @@ int DLLEXPORT EN_setqualtype(EN_Project p, int qualType, const char *chemName,
+         strcpy(rpt->Field[QUALITY].Units, u_HOURS);
+     }
+ 
+-    // When changing from CHEM to AGE or TRACE, nodes initial quality
+-    // values must be returned to their original ones
+-    if ((qual->Qualflag == AGE || qual->Qualflag == TRACE) && oldQualFlag == CHEM)
++    // Convert nodes initial quality values to the new concentration
++    // units, so that their values in user units do not change
++    for (i = 1; i <= p->network.Nnodes; i++)
+     {
+-        for (i = 1; i <= p->network.Nnodes; i++)
+-        {
+-            p->network.Node[i].C0 *= Ucf[QUALITY];
+-        }
++        p->network.Node[i].C0 *= Ucf[QUALITY] / ccf;
+     }
+ 
+     Ucf[QUALITY] = ccf;
+     Ucf[LINKQUAL] = ccf;
+     Ucf[REACTRATE] = ccf;
+     qual->Ctol /= Ucf[QUALITY];
++    qual->Climit /= Ucf[QUALITY];
+     return 0;
+ }
+ 

@@ -1,0 +1,22 @@
+CRASH-25: reject out-of-range flow unit codes in EN_setflowunits
+
+EN_setflowunits stored any integer as the flow units code. initunits()
+then used it to index RptFlowUnitsTxt[] (and saveinpfile FlowUnitsTxt[]),
+reading past the end of the table, and an unknown code silently got the
+CFS conversion factor. Return 251, as EN_init does for the same argument.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-25_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..9a1f04c 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1482,6 +1482,7 @@ int DLLEXPORT EN_setflowunits(EN_Project p, int units)
+     double *Ucf = p->Ucf;
+ 
+     if (!p->Openflag) return 102;
++    if (units < 0 || units > CMS) return 251;
+ 
+     // Determine unit system based on flow units
+     qfactor = Ucf[FLOW];

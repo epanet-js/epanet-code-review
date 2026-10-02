@@ -1,0 +1,23 @@
+SIM-20: convert the nominal tank area set by EN_VOLCURVE to ft2
+
+EN_setnodevalue(EN_VOLCURVE) computed the tank's nominal area from the
+curve, which is stored in user units, and kept it in user units. In SI
+projects the area was 10.76 times too small: EN_TANKDIAM and the saved
+diameter were wrong, and so was the tank's area if the curve was later
+deleted. Convert the area to ft2 as EN_settankdata and the parser do.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-20_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..9af4067 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2697,6 +2697,7 @@ int DLLEXPORT EN_setnodevalue(EN_Project p, int index, int property, double valu
+         Tank[j].Vmax = tankvolume(p, j, Tank[j].Hmax); // new max. volume
+         Tank[j].A = (curve->Y[n] - curve->Y[0]) /      // nominal area
+             (curve->X[n] - curve->X[0]);
++        Tank[j].A /= SQR(Ucf[ELEV]);                   // area in ft2
+         break;
+ 
+     case EN_MINLEVEL:

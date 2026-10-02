@@ -1,0 +1,44 @@
+[TITLE]
+FILE-07: a small booster in CMS units; four values need more than four decimals
+
+[JUNCTIONS]
+;ID   Elev  Demand   Pattern
+ J1   10    0
+ J2   5     0.0004   DAY
+
+[RESERVOIRS]
+;ID   Head
+ R1   0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  J1  J2  200     50    100    0      Open
+
+[PUMPS]
+;ID  N1  N2  Parameters
+ PU1 R1  J1  HEAD C1
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting   Mloss
+ V1  J1  J2  25    FCV   0.00025   0          ;0.25 L/s
+
+[CURVES]
+;PUMP: single-point curve, 0.45 L/s at 20 m
+ C1   0.00045   20
+
+[PATTERNS]
+;ID   Multipliers
+ DAY  1  1  0.00005  1                         ;near zero at hour 2
+
+[CONTROLS]
+ LINK V1 0.00012 AT TIME 3:00                  ;0.12 L/s
+
+[TIMES]
+ Duration          4:00
+ Pattern Timestep  1:00
+
+[OPTIONS]
+ Units     CMS
+ Headloss  H-W
+
+[END]

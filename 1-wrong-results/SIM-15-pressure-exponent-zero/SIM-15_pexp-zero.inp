@@ -1,0 +1,30 @@
+[TITLE]
+SIM-15: pressure-driven demand with a pressure exponent of 0
+EN_setdemandmodel rejects an exponent of 0; the input file should too.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     500       ; gpm
+ J2   0     500
+
+[RESERVOIRS]
+;ID   Head
+ R1   30
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    6     100    0      Open
+ P2  J1  J2  1000    6     100    0      Open
+
+[OPTIONS]
+ Units              GPM
+ Headloss           H-W
+ Demand Model       PDA
+ Minimum Pressure   0
+ Required Pressure  10
+ Pressure Exponent  0     ; invalid: demand = full x (p / 10)^0
+
+[TIMES]
+ Duration  0
+
+[END]

@@ -1,0 +1,44 @@
+[TITLE]
+WQ-03: reservoir R1 fills tank T1 through J1; no demands, so water can only leave by overflow
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  50    0
+
+[RESERVOIRS]
+;ID  Head
+ R1  150
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol  VolCurve  Overflow
+ T1  100   2          1         20        30        0       *         No        ; full after about 40 min
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+ P2  J1  T1  1000    12    100
+
+[QUALITY]
+;Node  InitQual
+ R1    1.0      ; the tank, junction and pipes start at 0 mg/L
+
+[MIXING]
+;Tank  Model
+ T1    FIFO     ; the test also runs it as MIXED and LIFO
+
+[OPTIONS]
+ Units    GPM
+ Headloss H-W
+ Quality  Chlorine mg/L
+
+[TIMES]
+ Duration            24:00
+ Hydraulic Timestep  0:15
+ Quality Timestep    0:05
+ Report Timestep     1:00
+
+[REPORT]
+ Status  Yes      ; writes the water quality mass balance to the report file
+ Summary No
+
+[END]

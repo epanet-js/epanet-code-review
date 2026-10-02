@@ -1,0 +1,28 @@
+[TITLE]
+CRASH-06: a GPV whose head loss curve has a single point
+Reservoir R1 supplies 1000 gpm to J1 through GPV V1.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     1000
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting
+ V1  R1  J1  12    GPV   C1
+
+[CURVES]
+;ID  Flow  HeadLoss
+ C1  500   10         ; one point only: no segment to interpolate on
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

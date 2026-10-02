@@ -1,0 +1,34 @@
+[TITLE]
+CRASH-26: rule R1 compares the level of tank T1 with a status
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   50
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  150   10         0         20        50        0       ; node 3 of 3
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  T1  1000    12    100    0      Open                 ; link 2 of 2
+
+[RULES]
+RULE R1
+IF TANK T1 LEVEL IS OPEN                 ; a status for a node variable
+THEN PIPE P2 STATUS = CLOSED
+
+[TIMES]
+ Duration            6:00
+ Hydraulic Timestep  1:00
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

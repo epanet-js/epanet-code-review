@@ -1,0 +1,39 @@
+SIM-19: type GPV curves assigned through the API as head loss curves
+
+A GPV's curve index is held in Link.Kc, but assigncurvetypes() looked
+for it in Valve[].Curve, which only PCVs use, and EN_setlinkvalue
+(EN_GPV_CURVE) did not set the curve's type. A curve assigned through
+the API therefore stayed GENERIC_CURVE, EN_setflowunits did not convert
+it, and EN_saveinpfile wrote the GENERIC type into the file. Read Kc
+in assigncurvetypes() and set HLOSS_CURVE when the curve is assigned,
+as the [VALVES] parser does.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-19_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..001b3d1 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4356,6 +4356,7 @@ int DLLEXPORT EN_setlinkvalue(EN_Project p, int index, int property, double valu
+             if (curveIndex < 0 || curveIndex > net->Ncurves) return 206;
+             Link[index].Kc = curveIndex;
+             if (hyd->OpenHflag == FALSE) Link[index].InitSetting = curveIndex;
++            if (curveIndex > 0) net->Curve[curveIndex].Type = HLOSS_CURVE;
+         }
+         break;
+ 
+diff --git a/src/project.c b/src/project.c
+index 792ccab..9d7c7f1 100644
+--- a/src/project.c
++++ b/src/project.c
+@@ -1146,7 +1146,8 @@ void assigncurvetypes(Network *network)
+             }
+         }
+         else if (link->Type == GPV){
+-            if((j = valve->Curve) > 0) {
++            // A GPV's curve index is stored in its Kc property
++            if((j = ROUND(link->Kc)) > 0) {
+                 network->Curve[j].Type = HLOSS_CURVE;
+             }
+         }

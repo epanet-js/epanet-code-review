@@ -1,0 +1,37 @@
+SIM-25: apply a pump power set while the solver is open
+
+EN_setlinkvalue(EN_PUMP_POWER) stores the power and marks the pump as
+constant power, but the pump's head curve coefficients are derived only
+by validateproject() at EN_openH. During a run a constant-power pump
+kept its old power, and a curve pump switched to constant power used
+its old curve coefficients in the constant-power formula and delivered
+no head. Call updatepumpparams() (added by SIM-22) when the solver is
+open, as SIM-22 does for EN_setheadcurveindex and EN_setcurve.
+
+Requires: SIM-03 SIM-22
+
+Apply from the root of an EPANET checkout at 83e25bb, after SIM-03,
+SIM-22 and the patches SIM-22 requires:
+    git apply SIM-03_fix.patch
+    git apply CRASH-16_fix.patch
+    git apply SIM-19_fix.patch
+    git apply SIM-21_fix.patch
+    git apply SIM-17_fix.patch
+    git apply SIM-22_fix.patch
+    git apply SIM-25_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 5ce8c95..b0890e0 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -4303,6 +4303,10 @@ int DLLEXPORT EN_setlinkvalue(EN_Project p, int index, int property, double valu
+             net->Pump[pumpIndex].Ptype = CONST_HP;
+             net->Pump[pumpIndex].Hcurve = 0;
+             net->Link[index].Km = value / Ucf[POWER];
++
++            // If the hydraulic solver is open, update the pump's
++            // coefficients now (otherwise EN_openH does this)
++            if (hyd->OpenHflag) updatepumpparams(p, pumpIndex);
+         }
+         break;
+ 

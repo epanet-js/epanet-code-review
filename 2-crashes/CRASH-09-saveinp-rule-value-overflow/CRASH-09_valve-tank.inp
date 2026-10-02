@@ -1,0 +1,34 @@
+[TITLE]
+CRASH-09: reservoir R1 feeds tank T1 through pressure-reducing valve V1
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   50
+ J2   100   0
+
+[RESERVOIRS]
+;ID   Head
+ R1   250
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  150   10         0         20        50        0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J2  T1  1000    12    100    0      Open
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting  Mloss
+ V1  J1  J2  12    PRV   60       0
+
+[TIMES]
+ Duration            24:00
+ Hydraulic Timestep  1:00
+
+[OPTIONS]
+ Units    GPM
+ Headloss H-W
+
+[END]

@@ -1,0 +1,62 @@
+WQ-04: average reaction rates over the reporting period only
+
+The quality solver adds to the bulk, wall, tank and source totals only
+when Htime >= Rstart, but savenetreacts() divides the totals by the
+whole duration. During a quality step Htime already holds the end of
+the hydraulic period, so the totals also include the period that ends
+at Rstart. With REPORT START 12:00 in a 24 h run the averages came out
+at 13/24 of the true rates. Test the start of the quality step (Qtime)
+instead, and divide by the length of the reporting period.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply WQ-04_fix.patch
+
+diff --git a/src/output.c b/src/output.c
+index 5ecd743..0024454 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -819,7 +819,8 @@ int savenetreacts(Project *pr, double wbulk, double wwall, double wtank, double
+     REAL4 w[4];
+     FILE *outFile = out->OutFile;
+ 
+-    if (time->Dur > 0) t = (double)time->Dur / 3600.;
++    // Rates are only accumulated over the reporting period
++    if (time->Dur > time->Rstart) t = (double)(time->Dur - time->Rstart) / 3600.;
+     else t = 1.;
+     w[0] = (REAL4)(wbulk / t);
+     w[1] = (REAL4)(wwall / t);
+diff --git a/src/quality.c b/src/quality.c
+index 36c89b9..918cd70 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -530,7 +530,7 @@ double findsourcequal(Project *pr, int n, double volout, long tstep)
+     source->Smass += massadded;
+ 
+     // Update Wsource
+-    if (time->Htime >= time->Rstart)
++    if (time->Qtime >= time->Rstart)
+     {
+         qual->Wsource += massadded;
+     }
+diff --git a/src/qualreact.c b/src/qualreact.c
+index 7ce6234..96b11a5 100644
+--- a/src/qualreact.c
++++ b/src/qualreact.c
+@@ -301,7 +301,7 @@ double pipereact(Project *pr, int k, double c, double v, long dt)
+     dcwall = rwall * (double)dt;
+ 
+     // Update cumulative mass reacted
+-    if (pr->times.Htime >= pr->times.Rstart)
++    if (pr->times.Qtime >= pr->times.Rstart)
+     {
+         qual->Wbulk += fabs(dcbulk) * v;
+         qual->Wwall += fabs(dcwall) * v;
+@@ -346,7 +346,7 @@ double tankreact(Project *pr, double c, double v, double kb, long dt)
+ 
+         // Find concentration change & update quality
+         dc = rbulk * (double)dt;
+-        if (pr->times.Htime >= pr->times.Rstart)
++        if (pr->times.Qtime >= pr->times.Rstart)
+         {
+             qual->Wtank += fabs(dc) * v;
+         }

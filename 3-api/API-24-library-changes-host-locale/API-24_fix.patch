@@ -1,0 +1,300 @@
+API-24: switch the numeric locale per thread, never for the process
+
+PR #919 made EN_createproject and the legacy createtmpfiles call
+setlocale(LC_NUMERIC, "") so that the report uses the system's decimal
+separator, and made saveinpfile switch to "C" and back to "". setlocale
+is process-wide, so the host program's own numbers changed too. New
+helpers in project.c, setnumericlocale() and restorenumericlocale(),
+change the calling thread's locale only (uselocale on POSIX,
+_configthreadlocale on Windows). They wrap saveinpfile ("C") and the
+report output ("") in EN_open, EN_runH, EN_nextH, EN_report and
+writemassbalance(). The Windows code has not been compiled or run.
+
+FILE-02 changes the first lines of saveinpfile() too, so this patch
+is made on top of it.
+
+Requires: FILE-02
+
+Apply from the root of an EPANET checkout at 83e25bb, after FILE-02:
+    git apply FILE-02_fix.patch
+    git apply API-24_fix.patch
+
+diff --git a/include/epanet2_2.h b/include/epanet2_2.h
+index af0dd62..635f495 100644
+--- a/include/epanet2_2.h
++++ b/include/epanet2_2.h
+@@ -219,9 +219,6 @@ typedef struct Project *EN_Project;
+   @param ph an EPANET project handle.
+   @param filename the name of the file to create.
+   @return an error code
+-  
+-  This function is not thread safe. Do not call it for multiple projects
+-  being analyzed in separate threads simultaneously.
+   */
+   int DLLEXPORT EN_saveinpfile(EN_Project ph, const char *filename);
+ 
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..07e2685 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -49,10 +49,6 @@ int DLLEXPORT EN_createproject(EN_Project *p)
+     getTmpName(project->TmpOutFname);
+     getTmpName(project->TmpStatFname);
+     *p = project;
+-    
+-    // Use system's decimal point (will be changed locally to dot
+-    // when reading/writing EPANET input files)
+-    setlocale(LC_NUMERIC, "");
+     return 0;
+ }
+ 
+@@ -561,11 +557,14 @@ int DLLEXPORT EN_runH(EN_Project p, long *currentTime)
+ */
+ {
+     int errcode;
++    void *savedlocale;
+ 
+     *currentTime = 0;
+     if (!p->hydraul.OpenHflag) return 103;
++    savedlocale = setnumericlocale("");   // Report in the system's locale
+     errcode = runhyd(p, currentTime);
+     if (errcode) errmsg(p, errcode);
++    restorenumericlocale(savedlocale);
+     return errcode;
+ }
+ 
+@@ -579,12 +578,15 @@ int DLLEXPORT EN_nextH(EN_Project p, long *tStep)
+ */
+ {
+     int errcode;
++    void *savedlocale;
+ 
+     *tStep = 0;
+     if (!p->hydraul.OpenHflag) return 103;
++    savedlocale = setnumericlocale("");   // Report in the system's locale
+     errcode = nexthyd(p, tStep);
+     if (errcode) errmsg(p, errcode);
+     else if (p->outfile.Saveflag && *tStep == 0) p->outfile.SaveHflag = TRUE;
++    restorenumericlocale(savedlocale);
+     return errcode;
+ }
+ 
+@@ -907,14 +909,17 @@ int DLLEXPORT EN_report(EN_Project p)
+ */
+ {
+     int errcode;
++    void *savedlocale;
+ 
+     // Check if results have been saved to binary output file
+     if (!p->outfile.SaveQflag) return 106;
+     writewin(p->viewprog, FMT103);
+ 
+-    // Write the formatted report
++    // Write the formatted report (in the system's locale)
++    savedlocale = setnumericlocale("");
+     errcode = writereport(p);
+     if (errcode) errmsg(p, errcode);
++    restorenumericlocale(savedlocale);
+     return errcode;
+ }
+ 
+diff --git a/src/epanet2.c b/src/epanet2.c
+index 94a02fe..c1d0c59 100644
+--- a/src/epanet2.c
++++ b/src/epanet2.c
+@@ -33,10 +33,6 @@ void createtmpfiles()
+     getTmpName(_defaultProject->TmpHydFname);
+     getTmpName(_defaultProject->TmpOutFname);
+     getTmpName(_defaultProject->TmpStatFname);
+-    
+-    // Use system's decimal point (will be changed locally to dot
+-    // when reading/writing EPANET input files)
+-    setlocale(LC_NUMERIC, "");
+ }
+ 
+ void removetmpfiles()
+diff --git a/src/funcs.h b/src/funcs.h
+index 7201aa0..c15f306 100755
+--- a/src/funcs.h
++++ b/src/funcs.h
+@@ -61,6 +61,8 @@ int     settag(Network *, int, int, const char *);
+ 
+ int     namevalid(const char *);
+ void    getTmpName(char *);
++void    *setnumericlocale(const char *);
++void    restorenumericlocale(void *);
+ char    *xstrcpy(char **, const char *, const size_t n);
+ int     strcomp(const char *, const char *);
+ double  interp(int, double [], double [], double);
+diff --git a/src/inpfile.c b/src/inpfile.c
+index 6b9c971..e81c341 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -126,6 +126,7 @@ int saveinpfile(Project *pr, const char *fname)
+     Pdemand demand;
+     Psource source;
+     FILE *f;
++    void *savedlocale;
+     Slink *link;
+     Stank *tank;
+     Snode *node;
+@@ -150,8 +151,8 @@ int saveinpfile(Project *pr, const char *fname)
+         return 302;
+     }
+     
+-    // Set global decimal point character to dot (not thread safe)
+-    setlocale(LC_NUMERIC, "C");
++    // Use a dot as the decimal point (in this thread only)
++    savedlocale = setnumericlocale("C");
+ 
+     // Write [TITLE] section
+     fprintf(f, s_TITLE);
+@@ -909,8 +910,8 @@ int saveinpfile(Project *pr, const char *fname)
+     fprintf(f, "\n%s\n", s_END);
+     fclose(f);
+     
+-    // Reset global decimal point character to system value
+-    setlocale(LC_NUMERIC, "");
++    // Give the thread back its previous locale
++    restorenumericlocale(savedlocale);
+     
+     return 0;
+ }
+diff --git a/src/project.c b/src/project.c
+index 792ccab..72fbf8b 100644
+--- a/src/project.c
++++ b/src/project.c
+@@ -15,6 +15,10 @@
+ #include <stdio.h>
+ #include <string.h>
+ #include <math.h> 
++#include <locale.h>
++#ifdef __APPLE__
++  #include <xlocale.h>
++#endif
+ 
+ //*** For the Windows SDK _tempnam function ***//
+ #ifdef _WIN32
+@@ -92,8 +96,13 @@ int openproject(Project *pr, const char *inpFile, const char *rptFile,
+             }
+         }            
+ 
+-        // Write input summary to report file
+-        if (pr->report.Summaryflag) writesummary(pr);
++        // Write input summary to report file (in the system's locale)
++        if (pr->report.Summaryflag)
++        {
++            void *savedlocale = setnumericlocale("");
++            writesummary(pr);
++            restorenumericlocale(savedlocale);
++        }
+         pr->Openflag = TRUE;
+     }
+     errmsg(pr, errcode);
+@@ -1591,6 +1600,82 @@ void getTmpName(char *fname)
+ #endif
+ }
+ 
++// Calling thread's locale saved by setnumericlocale()
++typedef struct
++{
++#ifdef _WIN32
++    int      mode;       // previous per-thread locale setting
++    char    *name;       // previous numeric locale name
++#else
++    locale_t prev;       // previous locale of the thread
++    locale_t loc;        // locale set by setnumericlocale()
++#endif
++} Slocale;
++
++void *setnumericlocale(const char *name)
++//----------------------------------------------------------------
++//  Input:   name = locale for numbers: "C" for a dot as the decimal
++//                  point, "" for the system's locale
++//  Output:  returns the thread's previous locale, to be passed to
++//           restorenumericlocale(), or NULL if nothing was changed
++//  Purpose: changes the locale used for numbers by printf and strtod
++//           in the calling thread only. setlocale() would change it
++//           for the whole program, including the host application.
++//----------------------------------------------------------------
++{
++    Slocale *saved = (Slocale *)malloc(sizeof(Slocale));
++    if (saved == NULL) return NULL;
++
++#ifdef _WIN32
++    // Give the thread its own copy of the locale, then change that
++    saved->mode = _configthreadlocale(_ENABLE_PER_THREAD_LOCALE);
++    if (saved->mode != -1)
++    {
++        char *prev = setlocale(LC_NUMERIC, NULL);
++        saved->name = prev ? _strdup(prev) : NULL;
++        if (saved->name && setlocale(LC_NUMERIC, name)) return saved;
++        free(saved->name);
++        _configthreadlocale(saved->mode);
++    }
++#else
++    // Copy the thread's current locale with its numeric part replaced
++    locale_t base = duplocale(uselocale((locale_t)0));
++    if (base != (locale_t)0)
++    {
++        saved->loc = newlocale(LC_NUMERIC_MASK, name, base);
++        if (saved->loc != (locale_t)0)
++        {
++            saved->prev = uselocale(saved->loc);
++            return saved;
++        }
++        freelocale(base);
++    }
++#endif
++    free(saved);
++    return NULL;
++}
++
++void restorenumericlocale(void *savedlocale)
++//----------------------------------------------------------------
++//  Input:   savedlocale = value returned by setnumericlocale()
++//  Output:  none
++//  Purpose: gives the calling thread back its previous locale
++//----------------------------------------------------------------
++{
++    Slocale *saved = (Slocale *)savedlocale;
++    if (saved == NULL) return;
++
++#ifdef _WIN32
++    setlocale(LC_NUMERIC, saved->name);
++    free(saved->name);
++    _configthreadlocale(saved->mode);
++#else
++    uselocale(saved->prev);
++    freelocale(saved->loc);
++#endif
++    free(saved);
++}
++
+ char *xstrcpy(char **s1, const char *s2, const size_t n)
+ //----------------------------------------------------------------
+ //  Input:   s1 = destination string
+diff --git a/src/report.c b/src/report.c
+index 2ea72a8..6fcd1fd 100644
+--- a/src/report.c
++++ b/src/report.c
+@@ -478,6 +478,11 @@ void writemassbalance(Project *pr)
+     char s1[MAXMSG+1];
+     char *units[] = {"", " (mg)", " (ug)", " (hrs)"};
+     int  kunits = 0;
++    void *savedlocale;
++
++    // Write numbers in the system's locale (this is the only part of
++    // the report written during a water quality run)
++    savedlocale = setnumericlocale("");
+ 
+     if      (qual->Qualflag == TRACE) kunits = 1;
+     else if (qual->Qualflag == AGE)   kunits = 3;
+@@ -507,6 +512,7 @@ void writemassbalance(Project *pr)
+     writeline(pr, s1);                          
+     snprintf(s1, MAXMSG, "================================\n");
+     writeline(pr, s1);
++    restorenumericlocale(savedlocale);
+ }
+ 
+ void writeenergy(Project *pr)

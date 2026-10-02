@@ -1,0 +1,36 @@
+SIM-24: recompute tank volumes when EN_deletecurve removes a volume curve
+
+EN_deletecurve drops a deleted volume curve from the tanks that use it,
+which turns them into cylinders with the curve's nominal area, but kept
+their minimum, initial and maximum volumes from the curve. For any curve
+that is not a straight line, the initial volume no longer matches the
+initial level and the level jumps on the first time step. Recompute the
+volumes as EN_TANKDIAM does when it removes a volume curve: the tank is
+a cylinder below its minimum level too.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-24_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..811464a 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -5112,6 +5112,18 @@ int  DLLEXPORT EN_deletecurve(EN_Project p, int index)
+     // Check that curve exists
+     if (index < 1 || index > p->network.Ncurves) return 205;
+ 
++    // A tank that uses the curve becomes a cylinder with the curve's
++    // nominal area, so its volumes must be updated (see EN_TANKDIAM)
++    for (i = 1; i <= net->Ntanks; i++)
++    {
++        if (net->Tank[i].Vcurve != index) continue;
++        net->Tank[i].Vcurve = 0;
++        net->Tank[i].Vmin = net->Tank[i].A *
++            (net->Tank[i].Hmin - net->Node[net->Tank[i].Node].El);
++        net->Tank[i].V0 = tankvolume(p, i, net->Tank[i].H0);
++        net->Tank[i].Vmax = tankvolume(p, i, net->Tank[i].Hmax);
++    }
++
+     // Adjust references by other objects to curves
+     adjustcurves(net, index);
+ 

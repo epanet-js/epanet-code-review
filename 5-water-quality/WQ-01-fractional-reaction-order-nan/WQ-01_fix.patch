@@ -1,0 +1,26 @@
+WQ-01: give a zero rate at zero concentration for orders below 1
+
+bulkrate() computes the n-th order reaction potential as
+c1 * pow(c, order - 1). For 0 < order < 1 and a concentration of exactly
+0, pow() returns inf and the product with c1 = 0 is NaN, which then
+spreads to every node and link the water reaches. Return a zero
+potential when the concentration is not positive. For orders above 1
+pow(0, order - 1) is already 0, so their results do not change.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply WQ-01_fix.patch
+
+diff --git a/src/qualreact.c b/src/qualreact.c
+index 7ce6234..ff97472 100644
+--- a/src/qualreact.c
++++ b/src/qualreact.c
+@@ -396,7 +396,8 @@ double bulkrate(Project *pr, double c, double kb, double order)
+         // Compute concentration potential
+         if (order == 1.0) c = c1;
+         else if (order == 2.0) c = c1 * c;
+-        else c = c1 * pow(MAX(0.0, c), order - 1.0);
++        else if (c <= 0.0) c = 0.0;   // avoids pow(0, <0) = inf for order < 1
++        else c = c1 * pow(c, order - 1.0);
+     }
+ 
+     // Reaction rate = bulk coeff. * potential

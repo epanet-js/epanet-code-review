@@ -1,0 +1,67 @@
+API-18: document EN_TANKLEVEL as the initial level; read reservoir head
+
+EN_getnodevalue(EN_TANKLEVEL) returns a tank's initial water level, as
+the maintainers ruled in PR #633, but the enum comment still called it
+the "current computed tank water level (read only)" and the toolkit
+guide listed it among computed results. Correct both, and say how to
+get the current level. For a reservoir, EN_setnodevalue(EN_TANKLEVEL)
+sets the head, but the getter returned 0; return the head instead.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-18_fix.patch
+
+diff --git a/doc/toolkit-usage.dox b/doc/toolkit-usage.dox
+index e34c325..654ee69 100644
+--- a/doc/toolkit-usage.dox
++++ b/doc/toolkit-usage.dox
+@@ -182,14 +182,16 @@ The @ref EN_getnodevalue and @ref EN_getlinkvalue functions can also be used to
+ |\b EN_DEMAND (total node outflow)    |\b EN_FLOW (flow rate)                     |
+ |\b EN_HEAD (hydraulic head)          |\b EN_VELOCITY (flow velocity)             |
+ |\b EN_PRESSURE (pressure)            |\b EN_HEADLOSS (head loss)                 |
+-|\b EN_TANKLEVEL (tank water level)   |\b EN_STATUS (link status)                 |
+-|\b EN_TANKVOLUME (tank water volume) |\b EN_SETTING (pump speed or valve setting)|
+-|\b EN_QUALITY (water quality)        |\b EN_ENERGY (pump energy usage)           |
+-|\b EN_SOURCEMASS (source mass inflow)|\b EN_LINKQUAL (water quality)             |
++|\b EN_TANKVOLUME (tank water volume) |\b EN_STATUS (link status)                 |
++|\b EN_QUALITY (water quality)        |\b EN_SETTING (pump speed or valve setting)|
++|\b EN_SOURCEMASS (source mass inflow)|\b EN_ENERGY (pump energy usage)           |
++|                                     |\b EN_LINKQUAL (water quality)             |
+ |                                     |\b EN_PUMP_STATE (pump state)              |
+ |                                     |\b EN_PUMP_EFFIC (pump efficiency)         |
+ |                                     |\b EN_LINK_LEAKAGE (pipe leakage flow rate)|
+ 
++A tank's current water level is its \b EN_HEAD minus its \b EN_ELEVATION. \b EN_TANKLEVEL is the tank's initial water level, an input like its minimum and maximum levels.
++
+ In addition, the following quantities related to a node's outflow can be retrieved:
+ -# EN_FULLDEMAND (consumer demand requested)
+ -# EN_DEMANDFLOW (consumer demand delivered)
+diff --git a/include/epanet2_enums.h b/include/epanet2_enums.h
+index 2da2e68..049b9f5 100644
+--- a/include/epanet2_enums.h
++++ b/include/epanet2_enums.h
+@@ -42,7 +42,7 @@ typedef enum {
+   EN_SOURCEQUAL   = 5, //!< Quality source strength
+   EN_SOURCEPAT    = 6, //!< Quality source pattern index
+   EN_SOURCETYPE   = 7, //!< Quality source type (see @ref EN_SourceType)
+-  EN_TANKLEVEL    = 8, //!< Current computed tank water level (read only)
++  EN_TANKLEVEL    = 8, //!< Tank initial water level (reservoir head)
+   EN_DEMAND       = 9, //!< Current computed demand (read only)
+   EN_HEAD         = 10, //!< Current computed hydraulic head (read only)
+   EN_PRESSURE     = 11, //!< Current computed pressure (read only)
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..8fff6c4 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2327,8 +2327,11 @@ int DLLEXPORT EN_getnodevalue(EN_Project p, int index, int property, double *val
+         break;
+ 
+     case EN_TANKLEVEL:
++        // Initial level of a tank, or head of a reservoir (what
++        // EN_setnodevalue assigns)
+         if (index <= nJuncs) return 0;
+-        v = (Tank[index - nJuncs].H0 - Node[index].El) * Ucf[ELEV];
++        if (Tank[index - nJuncs].A == 0.0) v = Tank[index - nJuncs].H0 * Ucf[ELEV];
++        else v = (Tank[index - nJuncs].H0 - Node[index].El) * Ucf[ELEV];
+         break;
+ 
+     case EN_INITVOLUME:

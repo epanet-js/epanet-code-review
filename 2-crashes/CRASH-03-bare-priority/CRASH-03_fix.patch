@@ -1,0 +1,23 @@
+CRASH-03: reject a PRIORITY clause that has no value
+
+newpriority() passed Tok[1] to getfloat() without checking the token
+count. For a bare PRIORITY line Tok[1] is NULL, so strtod() read
+address 0 and EPANET crashed, from EN_open and from EN_addrule. The
+clause is now a syntax error (201), which EN_open reports as error 200
+and EN_addrule returns as 250.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-03_fix.patch
+
+diff --git a/src/rules.c b/src/rules.c
+index 1b009ad..35e9fe7 100644
+--- a/src/rules.c
++++ b/src/rules.c
+@@ -940,6 +940,7 @@ int newpriority(Project *pr)
+     double x;
+     char **Tok = pr->parser.Tok;
+ 
++    if (pr->parser.Ntokens < 2) return 201;
+     if (!getfloat(Tok[1], &x)) return 202;
+     net->Rule[net->Nrules].priority = x;
+     return 0;

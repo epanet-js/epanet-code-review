@@ -1,0 +1,23 @@
+API-22: reduce API time-of-day control times modulo 24 hours
+
+The input-file parser reduces a CLOCKTIME control time modulo 86400 s,
+so "CLOCKTIME 24:00" means midnight. setcontrol(), used by
+EN_addcontrol and EN_setcontrol, stored the time as given. The solver
+compares it with the clock time of day, which is always under 86400 s,
+so a time of 24 h or more never fired. Reduce it the same way.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-22_fix.patch
+
+diff --git a/src/project.c b/src/project.c
+index 792ccab..8b89c41 100644
+--- a/src/project.c
++++ b/src/project.c
+@@ -1379,6 +1379,7 @@ int setcontrol(EN_Project p, int type, int linkIndex, double setting,
+     {
+         t = (long)level;
+         if (t < 0) return 202;
++        if (type == TIMEOFDAY) t %= SECperDAY;
+     }
+     
+     // Assign values to control struct

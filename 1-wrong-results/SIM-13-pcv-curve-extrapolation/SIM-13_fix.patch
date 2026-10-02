@@ -1,0 +1,24 @@
+SIM-13: extrapolate PCV curves to 100 % open, not to 1
+
+pcvlosscoeff() extrapolates a PCV curve linearly from its last point to
+fully open. PR #747 moved the curves from fractions to percentages, but
+the extrapolation still used 1 for the end point, giving a wrong Kv
+ratio above the last point, and 0/0 = NaN (treated as fully open) when
+the last x value is 1. Use 100 for both coordinates of the end point.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-13_fix.patch
+
+diff --git a/src/hydcoeffs.c b/src/hydcoeffs.c
+index d0b03c2..417cc80 100644
+--- a/src/hydcoeffs.c
++++ b/src/hydcoeffs.c
+@@ -208,7 +208,7 @@ double pcvlosscoeff(Project* pr, int k, double s)
+         else if (s > x[npts-1])
+         {
+             k2 = npts - 1;
+-            kvr = (s - x[k2]) / (1. -  x[k2]) * (1. - y[k2]) + y[k2];
++            kvr = (s - x[k2]) / (100. - x[k2]) * (100. - y[k2]) + y[k2];
+         }
+     
+         // Otherwise interpolate over curve segment that brackets s

@@ -1,0 +1,31 @@
+FILE-01: write each [REPORT] field option once, including F-Factor
+
+The [REPORT] writer loops over the fields below FRICTION. That range
+includes the link quality field, which is also named "Quality" and is
+always disabled, so every saved file has "Quality NO" after the node
+quality line. The reader matches the node field, so the reloaded file
+has no quality column. Skip the link quality field, which the reader
+cannot address, and include FRICTION ("F-Factor"), which the reader
+accepts but the writer left out.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-01_fix.patch
+
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..a481af6 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -818,9 +818,12 @@ int saveinpfile(Project *pr, const char *fname)
+     }
+ 
+     // Field formatting options
+-    for (i = 0; i < FRICTION; i++)
++    // (LINKQUAL is skipped: it has the same name as node QUALITY,
++    // which is the field the reader assigns that name to)
++    for (i = 0; i <= FRICTION; i++)
+     {
+         SField *field = &rpt->Field[i];
++        if (i == LINKQUAL) continue;
+         if (field->Enabled == TRUE)
+         {
+             fprintf(f, "\n %-20sPRECISION %d", field->Name, field->Precision);

@@ -1,0 +1,30 @@
+SIM-08: compare heads for level controls on reservoirs
+
+controls() decides whether a tank-level control fires by comparing tank
+volumes. tankvolume() returns Vmin for a reservoir (area 0) whatever the
+head, so both volumes were equal and every BELOW and ABOVE control on a
+reservoir fired at every time step. For a reservoir, compare its head
+with the control grade instead.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-08_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..14bd376 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -598,6 +598,14 @@ int  controls(Project *pr)
+             vplus = ABS(hyd->NodeDemand[n]);
+             v1 = tankvolume(pr,n - net->Njuncs,h);
+             v2 = tankvolume(pr,n - net->Njuncs, control->Grade);
++
++            // A reservoir has no volume, so compare its head instead
++            if (net->Tank[n - net->Njuncs].A == 0.0)
++            {
++                v1 = h;
++                v2 = control->Grade;
++                vplus = 0.0;
++            }
+             if (control->Type == LOWLEVEL && v1 <= v2 + vplus) reset = 1;
+             if (control->Type == HILEVEL && v1 >= v2 - vplus)  reset = 1;
+         }

@@ -1,0 +1,95 @@
+API-27: move node and link results with their objects on add/delete
+
+The node results (heads, demands, emitter, leakage and demand flows,
+quality) and link results (flows, settings, statuses) live in arrays
+indexed like Node[] and Link[]. EN_addnode, EN_deletenode and
+EN_deletelink shift Node[] or Link[] but never these arrays, so after
+the edit every object above the change reads the results of its
+neighbour, and the slot a new node gets is never written. Shift the
+results with the objects, and set a new node's results to 0.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-27_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..50bc634 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2040,6 +2040,26 @@ int DLLEXPORT EN_addnode(EN_Project p, const char *id, int nodeType, int *index)
+     node->Comment = NULL;
+     node->Tag = NULL;                     
+ 
++    // Move the results of the nodes above the new one up one place
++    // (with the nodes themselves) and clear the new node's results
++    for (i = net->Nnodes; i > nIdx; i--)
++    {
++        hyd->NodeHead[i] = hyd->NodeHead[i - 1];
++        hyd->NodeDemand[i] = hyd->NodeDemand[i - 1];
++        hyd->DemandFlow[i] = hyd->DemandFlow[i - 1];
++        hyd->FullDemand[i] = hyd->FullDemand[i - 1];
++        hyd->EmitterFlow[i] = hyd->EmitterFlow[i - 1];
++        hyd->LeakageFlow[i] = hyd->LeakageFlow[i - 1];
++        qual->NodeQual[i] = qual->NodeQual[i - 1];
++    }
++    hyd->NodeHead[nIdx] = 0.0;
++    hyd->NodeDemand[nIdx] = 0.0;
++    hyd->DemandFlow[nIdx] = 0.0;
++    hyd->FullDemand[nIdx] = 0.0;
++    hyd->EmitterFlow[nIdx] = 0.0;
++    hyd->LeakageFlow[nIdx] = 0.0;
++    qual->NodeQual[nIdx] = 0.0;
++
+     // Insert new node into hash table
+     hashtable_insert(net->NodeHashTable, node->ID, nIdx);
+     *index = nIdx;
+@@ -2061,6 +2081,8 @@ int DLLEXPORT EN_deletenode(EN_Project p, int index, int actionCode)
+ */
+ {
+     Network *net = &p->network;
++    Hydraul *hyd = &p->hydraul;
++    Quality *qual = &p->quality;
+ 
+     int i, nodeType, tankindex;
+     Snode *node;
+@@ -2109,6 +2131,18 @@ int DLLEXPORT EN_deletenode(EN_Project p, int index, int actionCode)
+     }
+     if (index < p->quality.TraceNode) (p->quality.TraceNode)--;
+ 
++    // Move the results of the higher nodes down one place with the nodes
++    for (i = index; i <= net->Nnodes - 1; i++)
++    {
++        hyd->NodeHead[i] = hyd->NodeHead[i + 1];
++        hyd->NodeDemand[i] = hyd->NodeDemand[i + 1];
++        hyd->DemandFlow[i] = hyd->DemandFlow[i + 1];
++        hyd->FullDemand[i] = hyd->FullDemand[i + 1];
++        hyd->EmitterFlow[i] = hyd->EmitterFlow[i + 1];
++        hyd->LeakageFlow[i] = hyd->LeakageFlow[i + 1];
++        qual->NodeQual[i] = qual->NodeQual[i + 1];
++    }
++
+     // If deleted node is a tank, remove it from the Tank array
+     if (nodeType != EN_JUNCTION)
+     {
+@@ -3547,6 +3581,7 @@ int DLLEXPORT EN_deletelink(EN_Project p, int index, int actionCode)
+ */
+ {
+     Network *net = &p->network;
++    Hydraul *hyd = &p->hydraul;
+ 
+     int i;
+     int pumpindex;
+@@ -3589,6 +3624,14 @@ int DLLEXPORT EN_deletelink(EN_Project p, int index, int actionCode)
+         hashtable_update(net->LinkHashTable, net->Link[i].ID, i);
+     }
+ 
++    // Move the results of the higher links down one place with the links
++    for (i = index; i <= net->Nlinks - 1; i++)
++    {
++        hyd->LinkFlow[i] = hyd->LinkFlow[i + 1];
++        hyd->LinkSetting[i] = hyd->LinkSetting[i + 1];
++        hyd->LinkStatus[i] = hyd->LinkStatus[i + 1];
++    }
++
+     // Adjust references to higher numbered links for pumps & valves
+     for (i = 1; i <= net->Npumps; i++)
+     {

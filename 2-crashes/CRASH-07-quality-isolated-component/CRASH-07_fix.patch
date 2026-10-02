@@ -1,0 +1,24 @@
+CRASH-07: size SortedNodes for every node
+
+openqual() allocates SortedNodes with the segment-array size,
+Nlinks + Ntanks + 1, but sortnodes() stores one entry per node at
+positions 1 to Nnodes. A connected network has at least Njuncs links,
+which hides the mismatch. A network with an isolated component can have
+more nodes than links plus tanks, and the sort then writes past the end
+of the array. Allocate Nnodes + 1 entries.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-07_fix.patch
+
+diff --git a/src/quality.c b/src/quality.c
+index 36c89b9..fb6e5a1 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -92,6 +92,7 @@ int openqual(Project *pr)
+     qual->LastSeg = (Pseg *)calloc(n, sizeof(Pseg));
+ 
+     // Allocate memory for topologically sorted nodes
++    n = net->Nnodes + 1;
+     qual->SortedNodes = (int *)calloc(n, sizeof(int));
+ 
+     ERRCODE(MEMCHECK(qual->FlowDir));

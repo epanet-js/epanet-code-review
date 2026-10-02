@@ -1,0 +1,27 @@
+[TITLE]
+CRASH-08: a demand category whose name (its comment) is longer than 31 characters
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   0
+ J2   100   0
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+ P2  J1  J2  1000    12    100
+
+[DEMANDS]
+;Node  Demand  Pattern  Category name (the comment)
+ J1    5       PAT1     ;Residential customers - north pressure zone 5
+ J1    2       PAT1     ;Commercial
+
+[PATTERNS]
+;ID   Multipliers
+ PAT1  1  1.2  0.8
+
+[END]

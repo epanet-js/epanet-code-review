@@ -1,0 +1,23 @@
+[TITLE]
+CRASH-23: reservoir R1 feeds J1, and J1 feeds J2 through two parallel pipes P2 and P3
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     100
+ J2   120   100     ; above R1's head: negative pressure, so the run ends with a warning
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    12    100    0      Open
+ P3  J1  J2  1000    12    100    0      Open    ; the test moves its start to node 0
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

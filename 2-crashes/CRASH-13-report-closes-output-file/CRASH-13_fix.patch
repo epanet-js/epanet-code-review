@@ -1,0 +1,29 @@
+CRASH-13: do not close the project's output file in writeresults
+
+writeresults() reads results through out->OutFile when the output file
+is still open (EN_report called before EN_closeQ), or opens the file by
+name otherwise, and then fcloses whichever handle it used. In the first
+case out->OutFile is left pointing at a closed stream: a second
+EN_report reads nothing (all-zero tables) or another file that reuses
+the FILE structure, and EN_closeQ closes the stream again. Close the
+file only if writeresults() opened it.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-13_fix.patch
+
+diff --git a/src/report.c b/src/report.c
+index 2ea72a8..29d95ce 100644
+--- a/src/report.c
++++ b/src/report.c
+@@ -639,8 +639,9 @@ int writeresults(Project *pr)
+         }
+     }
+ 
+-    // Free output file
+-    if (outFile != NULL)
++    // Close output file if it was opened here
++    // (the project's own OutFile is closed by closeoutfile)
++    if (outFile != NULL && outFile != out->OutFile)
+     {
+         fclose(outFile);
+         outFile = NULL;

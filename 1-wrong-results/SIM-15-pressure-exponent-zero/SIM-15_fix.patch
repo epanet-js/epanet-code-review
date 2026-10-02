@@ -1,0 +1,23 @@
+SIM-15: reject a PRESSURE EXPONENT of 0 in [OPTIONS]
+
+optionvalue() rejected only negative pressure exponents. With 0 the
+demand functions use n = 1/0, NaN reaches the solution matrix, and the
+run returns 0 with NaN heads, flows and demands. Reject values <= 0
+with error 213, as EN_setdemandmodel does (error 208).
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-15_fix.patch
+
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..7f15088 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -2153,7 +2153,7 @@ int optionvalue(Project *pr, int n)
+     }
+     else if (match(tok0, w_PRESSURE))
+     {
+-        if (y < 0.0) return setError(parser, nvalue, 213);
++        if (y <= 0.0) return setError(parser, nvalue, 213);
+         hyd->Pexp = y;
+         return 0;
+     }

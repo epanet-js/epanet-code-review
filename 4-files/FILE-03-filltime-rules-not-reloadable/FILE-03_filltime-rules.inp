@@ -1,0 +1,37 @@
+[TITLE]
+FILE-03: two rules on tank T1, one tests FILLTIME and one tests DRAINTIME
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   700   150
+
+[RESERVOIRS]
+;ID   Head
+ R1   800
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  850   120        100       150       50.5      0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  T1  1000    12    100    0      Open
+
+[RULES]
+RULE R1
+IF TANK T1 FILLTIME BELOW 1.5      ; hours
+THEN PIPE P2 STATUS IS CLOSED
+
+RULE R2
+IF TANK T1 DRAINTIME > 2.25        ; hours
+THEN PIPE P2 STATUS IS OPEN
+
+[TIMES]
+ Duration  24:00
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

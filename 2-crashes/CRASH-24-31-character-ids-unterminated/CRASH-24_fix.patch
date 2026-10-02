@@ -1,0 +1,49 @@
+CRASH-24: terminate node and link IDs copied with strncpy
+
+EN_addnode, EN_addlink, EN_setnodeid and EN_setlinkid copy the new ID
+with strncpy(ID, id, MAXID). namevalid() allows up to MAXID (31)
+characters, and for a 31-character ID strncpy writes no terminating
+zero. The ID's last byte ID[MAXID] keeps whatever the reallocated slot
+held, so the ID cannot be found by name, and EN_getnodeid and
+EN_getlinkid copy more than MAXID + 1 bytes into the caller's buffer.
+Write the terminator explicitly after each copy.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-24_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..a944eda 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2026,6 +2026,7 @@ int DLLEXPORT EN_addnode(EN_Project p, const char *id, int nodeType, int *index)
+     net->Nnodes++;
+     p->parser.MaxNodes = net->Nnodes;
+     strncpy(node->ID, id, MAXID);
++    node->ID[MAXID] = '\0';
+ 
+     // set default values for new node
+     node->Type = nodeType;
+@@ -2216,6 +2217,7 @@ int DLLEXPORT EN_setnodeid(EN_Project p, int index, const char *newid)
+     // Replace the existing node ID with the new value
+     hashtable_delete(net->NodeHashTable, net->Node[index].ID);
+     strncpy(net->Node[index].ID, newid, MAXID);
++    net->Node[index].ID[MAXID] = '\0';
+     hashtable_insert(net->NodeHashTable, net->Node[index].ID, index);
+     return 0;
+ }
+@@ -3447,6 +3449,7 @@ int DLLEXPORT EN_addlink(EN_Project p, const char *id, int linkType,
+     // Set properties for the new link
+     link = &net->Link[n];
+     strncpy(link->ID, id, MAXID);
++    link->ID[MAXID] = '\0';
+ 
+     if (linkType <= PIPE) net->Npipes++;
+     else if (linkType == PUMP)
+@@ -3701,6 +3704,7 @@ int DLLEXPORT EN_setlinkid(EN_Project p, int index, const char *newid)
+     // Replace the existing link ID with the new value
+     hashtable_delete(net->LinkHashTable, net->Link[index].ID);
+     strncpy(net->Link[index].ID, newid, MAXID);
++    net->Link[index].ID[MAXID] = '\0';
+     hashtable_insert(net->LinkHashTable, net->Link[index].ID, index);
+     return 0;
+ }

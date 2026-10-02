@@ -1,0 +1,24 @@
+SIM-01: fix the sign in the "tank empty within the next second" test
+
+tanklevels() snaps a tank to Vmax or Vmin when it would reach that volume
+within the next second. NodeDemand is the tank's net inflow, which is
+negative while it drains, so the empty test must add it, the same way the
+full test does. With the minus sign the test only fired once the tank was
+already more than a second's flow below Vmin.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-01_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..58aaefe 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -1083,7 +1083,7 @@ void  tanklevels(Project *pr, long tstep)
+         {
+             tank->V = tank->Vmax;
+         }
+-        else if (tank->V - hyd->NodeDemand[n] <= tank->Vmin)
++        else if (tank->V + hyd->NodeDemand[n] <= tank->Vmin)
+         {
+             tank->V = tank->Vmin;
+         }

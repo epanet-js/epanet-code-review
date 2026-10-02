@@ -1,0 +1,36 @@
+[TITLE]
+FILE-18: rules close P1 and P2 one second after 8:00 and 9:00; P3 stays open
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   300
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    8     100    0      Open
+ P2  R1  J1  1000    8     100    0      Open
+ P3  R1  J1  1000    8     100    0      Open
+
+[RULES]
+RULE TIMED
+IF SYSTEM TIME >= 8:00:01                ; 28,801 s after the start
+THEN PIPE P1 STATUS IS CLOSED
+
+RULE CLOCK
+IF SYSTEM CLOCKTIME >= 9:00:01 AM        ; 32,401 s (the run starts at 12 AM)
+THEN PIPE P2 STATUS IS CLOSED
+
+[TIMES]
+ Duration            12:00
+ Hydraulic Timestep  1:00
+ Rule Timestep       0:06              ; rules are checked every 360 s
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

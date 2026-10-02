@@ -1,0 +1,37 @@
+[TITLE]
+API-12: a 60 mg/min mass booster at J1, with flow through J1 all the time
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     0
+ J2  0     200
+
+[RESERVOIRS]
+;ID  Head
+ R1  100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  1000    12    100
+ P2  J1  J2  1000    12    100
+
+[SOURCES]
+;Node  Type  Strength
+ J1    MASS  60         ; mg/min, constant
+
+[OPTIONS]
+ Units    GPM
+ Headloss H-W
+ Quality  Chlorine mg/L
+
+[TIMES]
+ Duration            4:00
+ Hydraulic Timestep  1:00
+ Quality Timestep    0:05
+ Report Timestep     1:00
+
+[REPORT]
+ Status  No
+ Summary No
+
+[END]

@@ -1,0 +1,162 @@
+WQ-03: track FIFO/LIFO tank volume in the quality solver for overflow
+
+tankmix3() (FIFO) and tankmix4() (LIFO) decide that a tank overflows
+when tank->V >= Vmax, but tank->V belongs to the hydraulic solver. After
+EN_solveH it holds the volume at the end of the run, so a tank that ends
+full books every filling step as overflow. When hydraulics and quality
+are stepped together it holds the volume at the end of the step, so the
+step that fills a tank is booked as overflow, even for a tank that
+cannot overflow. Track each tank's volume in the quality solver (Vq,
+from V0 plus each step's net inflow), and treat only the part of the net
+inflow that would take Vq above Vmax as overflow, for tanks that can
+overflow.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply WQ-03_fix.patch
+
+diff --git a/src/quality.c b/src/quality.c
+index 36c89b9..721303f 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -141,10 +141,11 @@ int initqual(Project *pr)
+     }
+     if (qual->Qualflag == NONE) return errcode;
+ 
+-    // Initialize tank quality
++    // Initialize tank quality & volume
+     for (i = 1; i <= net->Ntanks; i++)
+     {
+         net->Tank[i].C = qual->NodeQual[net->Tank[i].Node];
++        net->Tank[i].Vq = net->Tank[i].V0;
+     }
+ 
+     // Initialize quality at trace node (if applicable)
+diff --git a/src/qualreact.c b/src/qualreact.c
+index 7ce6234..034a061 100644
+--- a/src/qualreact.c
++++ b/src/qualreact.c
+@@ -39,6 +39,7 @@ static void    tankmix1(Project *, int, double, double, double);
+ static void    tankmix2(Project *, int, double, double, double);
+ static void    tankmix3(Project *, int, double, double, double);
+ static void    tankmix4(Project *, int, double, double, double);
++static double  tankoverflow(Stank *, double);
+ 
+ 
+ char setreactflag(Project *pr)
+@@ -615,7 +616,7 @@ void tankmix3(Project *pr, int i, double vin, double win, double vnet)
+     Quality *qual = &pr->quality;
+ 
+     int k;
+-    double vout, vseg;
++    double vout, vseg, vover;
+     double cin, vsum, wsum;
+     Pseg seg;
+     Stank *tank = &pr->network.Tank[i];
+@@ -635,9 +636,9 @@ void tankmix3(Project *pr, int i, double vin, double win, double vnet)
+         else addseg(pr, k, vin, cin);
+     }
+ 
+-    // Find volume leaving tank, adjusted so its volume doesn't exceed Vmax
+-    vout = vin - vnet;
+-    if (tank->V >= tank->Vmax && vnet > 0.0) vout = vin;
++    // Find volume leaving tank, including any overflow above Vmax
++    vover = tankoverflow(tank, vnet);
++    vout = vin - vnet + vover;
+ 
+     // Withdraw outflow from first segment
+     vsum = 0.0;
+@@ -671,8 +672,7 @@ void tankmix3(Project *pr, int i, double vin, double win, double vnet)
+     else                                tank->C = qual->FirstSeg[k]->c;
+     
+     // Account for mass lost in overflow from 1st segment
+-    if (tank->V >= tank->Vmax && vnet > 0.0)
+-        qual->MassBalance.outflow += vnet * tank->C;
++    qual->MassBalance.outflow += vover * tank->C;
+ }
+ 
+ 
+@@ -692,13 +692,16 @@ void tankmix4(Project *pr, int i, double vin, double win, double vnet)
+     Quality *qual = &pr->quality;
+ 
+     int k;
+-    double cin, vsum, wsum, vseg;
++    double cin, vsum, wsum, vseg, vover;
+     Pseg seg;
+     Stank *tank = &pr->network.Tank[i];
+ 
+     k = net->Nlinks + i;
+     if (qual->LastSeg[k] == NULL || qual->FirstSeg[k] == NULL) return;
+ 
++    // Find any overflow above Vmax
++    vover = tankoverflow(tank, vnet);
++
+     // Find inflow concentration
+     if (vin > 0.0) cin = win / vin;
+     else           cin = 0.0;
+@@ -718,20 +721,20 @@ void tankmix4(Project *pr, int i, double vin, double win, double vnet)
+         // Update reported tank quality
+         tank->C = qual->LastSeg[k]->c;
+         
+-        // If tank full then remove vnet from leading segments
+-        if (tank->V >= tank->Vmax)
++        // If tank overflows then remove overflow from leading segments
++        if (vover > 0.0)
+         {
+             wsum = 0.0;
+-            while (vnet > 0.0)
++            while (vover > 0.0)
+             {
+                 seg = qual->FirstSeg[k];
+                 if (seg == NULL)  break;
+                 vseg = seg->v;               // Flow volume from leading seg
+-                vseg = MIN(vseg, vnet);
+-                if (seg == qual->LastSeg[k]) vseg = vnet;
++                vseg = MIN(vseg, vover);
++                if (seg == qual->LastSeg[k]) vseg = vover;
+                 wsum += (seg->c) * vseg;
+-                vnet -= vseg;               // Remaining flow volume
+-                if (vnet >= 0.0 && vseg >= seg->v)  // Seg used up
++                vover -= vseg;              // Remaining flow volume
++                if (vover >= 0.0 && vseg >= seg->v)  // Seg used up
+                 {
+                     if (seg->prev)
+                     {
+@@ -798,3 +801,26 @@ void tankmix4(Project *pr, int i, double vin, double win, double vnet)
+         tank->C = (wsum + win) / (vsum + vin);
+     }
+ }
++
++
++double tankoverflow(Stank *tank, double vnet)
++/*
++**----------------------------------------------------------
++**   Input:   tank = a tank object
++**            vnet = inflow - outflow volume over the time step
++**   Output:  returns the volume that overflows the tank
++**   Purpose: updates the tank volume tracked by the quality
++**            solver and finds how much of the net inflow is
++**            lost to overflow (only for tanks that can overflow).
++**----------------------------------------------------------
++*/
++{
++    double vover = 0.0;
++
++    if (tank->CanOverflow && vnet > 0.0)
++    {
++        vover = MAX(0.0, tank->Vq + vnet - tank->Vmax);
++    }
++    tank->Vq += vnet - vover;
++    return vover;
++}
+diff --git a/src/types.h b/src/types.h
+index b35c5cd..4ccf18d 100755
+--- a/src/types.h
++++ b/src/types.h
+@@ -443,6 +443,7 @@ typedef struct             // Tank Object
+   double  Kb;              // bulk reaction coeff.
+   double  V;               // tank volume
+   double  C;               // concentration
++  double  Vq;              // volume tracked by water quality solver
+   int     Pat;             // fixed grade time pattern
+   int     Vcurve;          // volume v. elev. curve index
+   MixType MixModel;        // type of mixing model

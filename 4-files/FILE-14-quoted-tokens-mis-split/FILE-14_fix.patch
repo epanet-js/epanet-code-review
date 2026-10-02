@@ -1,0 +1,25 @@
+FILE-14: keep the remaining length right after a quoted token
+
+gettokens() keeps len, the number of characters left on the line. For a
+token that starts with a quote, it subtracted the length up to the first
+separator, but then moved past the whole quoted token and its closing
+quote. The two disagreed: without spaces in the quotes len ended one too
+short, so the last token on the line kept its newline; with spaces it
+ended too long, so the scan ran past the end of the line. len is now
+recomputed from the position of the closing quote.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-14_fix.patch
+
+diff --git a/src/input2.c b/src/input2.c
+index 220c757..b9876e0 100644
+--- a/src/input2.c
++++ b/src/input2.c
+@@ -608,6 +608,7 @@ int  gettokens(char *s, char** Tok, int maxToks, char *comment)
+             {
+                 s++;                           // Start token after quote
+                 m = (int)strcspn(s,"\"\n\r");  // Find end quote (or EOL)
++                len = (int)strlen(s + m) - 1;  // Length after end quote
+             }
+             s[m] = '\0';                 // Null-terminate the token
+             Tok[n] = s;                  // Save pointer to token

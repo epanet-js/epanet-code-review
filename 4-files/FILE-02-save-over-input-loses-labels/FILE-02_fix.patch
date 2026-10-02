@@ -1,0 +1,65 @@
+FILE-02: copy [LABELS] and [BACKDROP] before truncating the output file
+
+EPANET keeps no map labels or backdrop in memory: saveinpfile copies
+those sections from the input file into the new file, after writing
+everything else. When the new file is the input file, fopen(fname, "wt")
+has already emptied it, so the sections are lost. Copy them to a scratch
+file before the output file is opened, and append that copy at the end.
+If no scratch file can be created, fall back to the old behaviour.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-02_fix.patch
+
+diff --git a/src/inpfile.c b/src/inpfile.c
+index ad24244..6b9c971 100644
+--- a/src/inpfile.c
++++ b/src/inpfile.c
+@@ -121,6 +121,8 @@ int saveinpfile(Project *pr, const char *fname)
+     int i, j, n;
+     double d, kc, ke, km, ucf;
+     char s[MAXLINE + 1], s1[MAXLINE + 1], s2[MAXLINE + 1];
++    char auxFname[MAXFNAME + 1];
++    FILE *aux;
+     Pdemand demand;
+     Psource source;
+     FILE *f;
+@@ -131,8 +133,22 @@ int saveinpfile(Project *pr, const char *fname)
+     Scontrol *control;
+     Scurve *curve;
+ 
++    // Copy auxiliary data from the input file to a scratch file
++    // first, since fname may be the name of the input file
++    getTmpName(auxFname);
++    aux = fopen(auxFname, "w+t");
++    if (aux != NULL) saveauxdata(pr, aux);
++
+     // Open the new text file
+-    if ((f = fopen(fname, "wt")) == NULL) return 302;
++    if ((f = fopen(fname, "wt")) == NULL)
++    {
++        if (aux != NULL)
++        {
++            fclose(aux);
++            remove(auxFname);
++        }
++        return 302;
++    }
+     
+     // Set global decimal point character to dot (not thread safe)
+     setlocale(LC_NUMERIC, "C");
+@@ -880,7 +896,14 @@ int saveinpfile(Project *pr, const char *fname)
+ 
+     // Save auxiliary data to new input file
+     fprintf(f, "\n");
+-    saveauxdata(pr, f);
++    if (aux != NULL)
++    {
++        rewind(aux);
++        while (fgets(s, MAXLINE, aux) != NULL) fputs(s, f);
++        fclose(aux);
++        remove(auxFname);
++    }
++    else saveauxdata(pr, f);
+ 
+     // Close the new input file
+     fprintf(f, "\n%s\n", s_END);

@@ -1,0 +1,42 @@
+API-13: validate the new REPORTSTART value; no statistic for no periods
+
+EN_settimeparam(EN_REPORTSTART) tested the current report start against
+the duration instead of the new value. A start after the end of the run
+was accepted, and from then on every valid value was refused with 213.
+Test the new value. A run that reports no period at all (for example one
+that halts before REPORT START) also made savetimestat() divide the
+STATISTIC AVERAGE sums by zero periods and write NaN to the output file.
+Skip the statistic when there is no period, as the SERIES case already
+writes no results then.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-13_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..0163edf 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1692,7 +1692,7 @@ int DLLEXPORT EN_settimeparam(EN_Project p, int param, long value)
+         break;
+ 
+     case EN_REPORTSTART:
+-        if (time->Rstart > time->Dur) return 213;
++        if (value > time->Dur) return 213;
+         time->Rstart = value;
+         break;
+ 
+diff --git a/src/output.c b/src/output.c
+index 5ecd743..1f11340 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -630,7 +630,9 @@ int savefinaloutput(Project *pr)
+     FILE *outFile = out->OutFile;
+ 
+     // Save time series statistic if computed
+-    if (rpt->Tstatflag != SERIES && out->TmpOutFile != NULL)
++    // (there is none if no time period was reported)
++    if (rpt->Tstatflag != SERIES && out->TmpOutFile != NULL &&
++        rpt->Nperiods > 0)
+     {
+         x = (REAL4 *)calloc(MAX(net->Nnodes, net->Nlinks) + 1, sizeof(REAL4));
+         if (x == NULL) return 101;

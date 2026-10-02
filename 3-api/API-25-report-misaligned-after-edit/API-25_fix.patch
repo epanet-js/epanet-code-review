@@ -1,0 +1,82 @@
+API-25: clear the saved-results flag on every structural edit
+
+EN_report only checks outfile.SaveQflag before it reads the binary
+output file, and writeresults() reads each reporting period with the
+node and link counts the network has now. After a node or link was
+added or deleted, EN_report printed every value out of alignment, for
+example a flow in a velocity column, and returned 0. Clear SaveQflag
+next to SaveHflag (API-05) in the six structural editing functions,
+so EN_report returns 106 until the network is solved again.
+
+Requires: API-05
+
+Apply from the root of an EPANET checkout at 83e25bb, after API-05:
+    git apply API-25_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 0b5e928..51f7229 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -2044,8 +2044,9 @@ int DLLEXPORT EN_addnode(EN_Project p, const char *id, int nodeType, int *index)
+     hashtable_insert(net->NodeHashTable, node->ID, nIdx);
+     *index = nIdx;
+ 
+-    // Saved hydraulic results no longer match the network
++    // Saved hydraulic and output results no longer match the network
+     p->outfile.SaveHflag = FALSE;
++    p->outfile.SaveQflag = FALSE;
+     return 0;
+ }
+ 
+@@ -2163,8 +2164,9 @@ int DLLEXPORT EN_deletenode(EN_Project p, int index, int actionCode)
+     else net->Ntanks--;
+     net->Nnodes--;
+ 
+-    // Saved hydraulic results no longer match the network
++    // Saved hydraulic and output results no longer match the network
+     p->outfile.SaveHflag = FALSE;
++    p->outfile.SaveQflag = FALSE;
+     return 0;
+ }
+ 
+@@ -3537,8 +3539,9 @@ int DLLEXPORT EN_addlink(EN_Project p, const char *id, int linkType,
+     hashtable_insert(net->LinkHashTable, link->ID, n);
+     *index = n;
+ 
+-    // Saved hydraulic results no longer match the network
++    // Saved hydraulic and output results no longer match the network
+     p->outfile.SaveHflag = FALSE;
++    p->outfile.SaveQflag = FALSE;
+     return 0;
+ }
+ 
+@@ -3654,8 +3657,9 @@ int DLLEXPORT EN_deletelink(EN_Project p, int index, int actionCode)
+     // Reduce link count by one
+     net->Nlinks--;
+ 
+-    // Saved hydraulic results no longer match the network
++    // Saved hydraulic and output results no longer match the network
+     p->outfile.SaveHflag = FALSE;
++    p->outfile.SaveQflag = FALSE;
+     return 0;
+ }
+ 
+@@ -3787,6 +3791,7 @@ int DLLEXPORT EN_setlinktype(EN_Project p, int *index, int linkType, int actionC
+         net->Link[i].Type = linkType;
+         if (linkType == CVPIPE) net->Link[i].InitStatus = OPEN;
+         p->outfile.SaveHflag = FALSE;
++        p->outfile.SaveQflag = FALSE;
+         return 0;
+     }
+ 
+@@ -3869,8 +3874,9 @@ int DLLEXPORT EN_setlinknodes(EN_Project p, int index, int node1, int node2)
+     net->Link[index].N1 = node1;
+     net->Link[index].N2 = node2;
+ 
+-    // Saved hydraulic results no longer match the network
++    // Saved hydraulic and output results no longer match the network
+     p->outfile.SaveHflag = FALSE;
++    p->outfile.SaveQflag = FALSE;
+     return 0;
+ }
+ 

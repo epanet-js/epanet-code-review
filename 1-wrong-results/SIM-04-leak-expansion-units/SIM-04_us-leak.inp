@@ -1,0 +1,28 @@
+[TITLE]
+SIM-04: leak expansion in US units. One 100 ft pipe from R1 to J1 at 100 ft of
+pressure head. Its only leakage parameter is an expansion rate of 1.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     0
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  100     12    100    0      Open
+
+[LEAKAGE]
+;Pipe  Area  Expansion
+ P1     0     1          ; 1 sq mm per ? of head, per 100 ft of pipe
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

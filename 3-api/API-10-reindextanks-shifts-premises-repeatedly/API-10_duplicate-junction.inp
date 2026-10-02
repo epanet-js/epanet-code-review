@@ -1,0 +1,36 @@
+[TITLE]
+API-10: junction J1 is listed twice; rule RA tests the level of tank T2
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   50
+ J1   100   50          ; duplicate ID: error 215, so the file needs EN_openX
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol
+ T1  150   10         0         20        50        0
+ T2  150   10         0         20        50        0
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  T1  1000    12    100    0      Open
+ P3  J1  T2  1000    12    100    0      Open
+
+[RULES]
+RULE RA
+IF TANK T2 LEVEL > 15
+THEN PIPE P3 STATUS = CLOSED
+
+[TIMES]
+ Duration  6:00
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

@@ -1,0 +1,36 @@
+API-01: shift tank rule premises before counting the new junction
+
+EN_addnode calls adjusttankrules() after it has incremented Njuncs.
+adjusttankrules() shifts premises whose node index is greater than
+Njuncs, so the premise on the first tank or reservoir (index old
+Njuncs + 1) is not shifted and ends up on the new junction. The call
+now comes before Njuncs is incremented, while every tank and
+reservoir index is still greater than Njuncs.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-01_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..52e1349 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -1963,6 +1963,10 @@ int DLLEXPORT EN_addnode(EN_Project p, const char *id, int nodeType, int *index)
+             net->Node[i + 1] = net->Node[i];
+         }
+ 
++        // adjust indices of tanks/reservoirs in Rule premises (see RULES.C)
++        // (before Njuncs is incremented, since it shifts indices > Njuncs)
++        adjusttankrules(p, 1);
++
+         // set index of new Junction node
+         net->Njuncs++;
+         nIdx = net->Njuncs;
+@@ -1987,8 +1991,6 @@ int DLLEXPORT EN_addnode(EN_Project p, const char *id, int nodeType, int *index)
+             control = &net->Control[i];
+             if (control->Node > net->Njuncs - 1) control->Node += 1;
+         }
+-        // adjust indices of tanks/reservoirs in Rule premises (see RULES.C)
+-        adjusttankrules(p, 1);
+     }
+ 
+     // Actions taken when a new Tank/Reservoir is added

@@ -1,0 +1,29 @@
+CRASH-18: reject EN_addrule lines that do not fit the line buffer
+
+EN_addrule copies each line of the rule text into char line2[MAXLINE+1]
+with strcpy and then appends a newline, so any line of MAXLINE (1,024)
+characters or more overflowed the stack. EN_addrule now returns error
+214 (too many characters in input line) for such a line, the same limit
+that applies to a line of an input file.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-18_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..2c5a115 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -5648,6 +5648,13 @@ int DLLEXPORT EN_addrule(EN_Project p, char *rule)
+         nextline = strchr(line, '\n');
+         if (nextline) *nextline = '\0';
+ 
++        // The line and the newline added below must fit in line2
++        if (strlen(line) >= MAXLINE)
++        {
++            rules->Errcode = 214;
++            break;
++        }
++
+         // Copy and tokenize the current line
+         strcpy(line2, line);
+         strcat(line2, "\n");  // Tokenizer won't work without this

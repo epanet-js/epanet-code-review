@@ -1,0 +1,26 @@
+CRASH-26: reject a status value in a rule premise that is not on a link
+
+newpremise() accepted OPEN, CLOSED or ACTIVE as the value of any
+premise, so "IF TANK T1 LEVEL IS OPEN" loaded. checkpremise() sends any
+premise with a status to checkstatus(), which reads LinkStatus at the
+premise's index: here a node index, past the end of the array when the
+node's index is larger than the number of links. A status value is now
+an illegal value (202) unless the premise is on a link.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-26_fix.patch
+
+diff --git a/src/rules.c b/src/rules.c
+index 1b009ad..6f4f42b 100644
+--- a/src/rules.c
++++ b/src/rules.c
+@@ -833,6 +833,9 @@ int newpremise(Project *pr, int logop)
+         if (v == r_FILLTIME || v == r_DRAINTIME) x = x * 3600.0;
+     }
+ 
++    // Only a link has a status to compare with
++    if (s > IS_NUMBER && i != r_LINK) return 202;
++
+     // Create new premise structure
+     p = (Spremise *)malloc(sizeof(Spremise));
+     if (p == NULL) return 101;

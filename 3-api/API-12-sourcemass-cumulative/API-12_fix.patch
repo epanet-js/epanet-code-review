@@ -1,0 +1,39 @@
+API-12: make EN_SOURCEMASS the source's current mass inflow rate
+
+Source->Smass is documented as the actual mass flow rate, and
+EN_SOURCEMASS returns Smass * 60 as mass/minute. EPANET 2.0 divided the
+mass added by the time step; the v2.2 quality rewrite dropped that, so
+Smass became the total mass added since the start of the run and
+EN_SOURCEMASS returned that total times 60. Store the mass added over
+the latest quality step divided by the step length, and 0 when the
+source adds nothing, so EN_SOURCEMASS is again a rate in mass/minute.
+
+Requires: WQ-04
+
+Apply from the root of an EPANET checkout at 83e25bb, after
+WQ-04_fix.patch:
+    git apply API-12_fix.patch
+
+diff --git a/src/quality.c b/src/quality.c
+index 918cd70..0fd1c0c 100644
+--- a/src/quality.c
++++ b/src/quality.c
+@@ -484,6 +484,7 @@ double findsourcequal(Project *pr, int n, double volout, long tstep)
+     // Return 0 if node is not a quality source or has no outflow
+     source = net->Node[n].S;
+     if (source == NULL)    return 0.0;
++    source->Smass = 0.0;
+     if (source->C0 == 0.0) return 0.0;
+     if (volout / tstep <= Q_STAGNANT) return 0.0;
+ 
+@@ -526,8 +527,8 @@ double findsourcequal(Project *pr, int n, double volout, long tstep)
+     // Source mass added over time step = source concen. * outflow volume
+     massadded = c * volout;
+ 
+-    // Update source's total mass added
+-    source->Smass += massadded;
++    // Update source's mass inflow rate (mass/sec)
++    source->Smass = massadded / tstep;
+ 
+     // Update Wsource
+     if (time->Qtime >= time->Rstart)

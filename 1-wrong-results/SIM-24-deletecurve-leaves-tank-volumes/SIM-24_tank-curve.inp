@@ -1,0 +1,34 @@
+[TITLE]
+SIM-24: elevated tank T1 (narrow riser, wide bowl) drains 20 gpm into junction J1
+Volume curve VC: 100 ft3 per ft up to 10 ft, then 700 ft3 per ft up to 20 ft.
+
+[JUNCTIONS]
+;ID  Elev  Demand
+ J1  0     20
+
+[TANKS]
+;ID  Elev  InitLevel  MinLevel  MaxLevel  Diameter  MinVol  VolCurve
+ T1  100   10         0         20        50        0       VC          ; 1,000 ft3 at 10 ft
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  T1  J1  1000    8     100    0      Open
+
+[CURVES]
+;ID  Level  Volume
+ VC  0      0
+ VC  10     1000        ; riser
+ VC  20     8000        ; bowl
+
+[TIMES]
+ Duration            1:00
+ Hydraulic Timestep  1:00
+
+[REPORT]
+ Summary  No
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

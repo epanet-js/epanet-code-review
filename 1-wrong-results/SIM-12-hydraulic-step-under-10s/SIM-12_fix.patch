@@ -1,0 +1,48 @@
+SIM-12: keep the default quality and rule steps at 1 second or more
+
+adjustdata() sets a missing quality or rule time step to Hstep/10 with
+integer division, which is 0 for a hydraulic step under 10 s. A quality
+step of 0 makes nextqual() loop forever, and a rule step of 0 divides
+by zero in ruletimestep(). Use at least 1 s for both defaults, and make
+ruletimestep() fall back to one evaluation per time step if the rule
+step is still not positive. EN_settimeparam already rejects 0 for both.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-12_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..46b832e 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -841,8 +841,9 @@ void  ruletimestep(Project *pr, long *tstep)
+     tnow = time->Htime;
+     tmax = tnow + *tstep;
+ 
+-    // If no rules, then time increment equals current time step
+-    if (net->Nrules == 0)
++    // If no rules (or no rule time step), then time increment
++    // equals current time step
++    if (net->Nrules == 0 || time->Rulestep <= 0)
+     {
+         dt = *tstep;
+         dt1 = dt;
+diff --git a/src/input1.c b/src/input1.c
+index bb1db45..fd99f35 100644
+--- a/src/input1.c
++++ b/src/input1.c
+@@ -237,11 +237,12 @@ void adjustdata(Project *pr)
+     if (time->Rstart > time->Dur) time->Rstart = 0;
+ 
+     // If no quality timestep, then make it 1/10 of hydraulic timestep
+-    if (time->Qstep == 0) time->Qstep = time->Hstep / 10;
++    // (at least 1 second)
++    if (time->Qstep == 0) time->Qstep = MAX(1, time->Hstep / 10);
+ 
+     // If no rule time step then make it 1/10 of hydraulic time step
+-    // but not greater than hydraulic time step
+-    if (time->Rulestep == 0) time->Rulestep = time->Hstep / 10;
++    // (at least 1 second) but not greater than hydraulic time step
++    if (time->Rulestep == 0) time->Rulestep = MAX(1, time->Hstep / 10);
+     time->Rulestep = MIN(time->Rulestep, time->Hstep);
+ 
+     // Quality timestep cannot exceed hydraulic timestep

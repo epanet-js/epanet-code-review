@@ -1,0 +1,24 @@
+[TITLE]
+FILE-10: five parallel pipes, each with one value that is not a valid number
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   10
+
+[RESERVOIRS]
+;ID   Head
+ R1   150
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss
+ P1  R1  J1  1000    nan   100    0      ; diameter NaN
+ P2  R1  J1  inf     12    100    0      ; length infinite
+ P3  R1  J1  1000    12    0x64   0      ; roughness in hexadecimal (100)
+ P4  R1  J1  1000    12    100    ""     ; minor loss is an empty token
+ P5  R1  J1  1000    12°   100    0      ; diameter followed by a degree sign
+
+[OPTIONS]
+ Units      GPM
+ Headloss   H-W
+
+[END]

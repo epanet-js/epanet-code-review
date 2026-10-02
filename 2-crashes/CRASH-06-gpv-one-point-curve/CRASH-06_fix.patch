@@ -1,0 +1,36 @@
+CRASH-06: require at least two points on a GPV head loss curve
+
+curvecoeff() finds the curve segment that brackets the flow. A curve
+with one point has no segment, so it read X[-1] and Y[-1] (or X[1] and
+Y[1]) of a one-element array. validatecurves() only requires one point,
+which is enough for a pump curve but not for a GPV. Extend
+validatevalves() (added by CRASH-16) to report a GPV curve with fewer
+than two points as error 231, so EN_openH returns 110.
+
+Requires: CRASH-16
+
+Apply from the root of an EPANET checkout at 83e25bb, after CRASH-16:
+    git apply CRASH-16_fix.patch
+    git apply CRASH-06_fix.patch
+
+diff --git a/src/validate.c b/src/validate.c
+index f56d848..da1b73c 100644
+--- a/src/validate.c
++++ b/src/validate.c
+@@ -179,6 +179,16 @@ int validatevalves(Project *pr)
+             writeline(pr, pr->Msg);
+             result = 0;
+         }
++
++        // Head loss is interpolated between curve points, so a GPV's
++        // curve needs at least 2 (validatecurves() reports 0 points)
++        else if (net->Curve[c].Npts == 1)
++        {
++            sprintf(pr->Msg, "Error 231: %s %s (a GPV curve needs 2 or more points)",
++                geterrmsg(231, errmsg), net->Curve[c].ID);
++            writeline(pr, pr->Msg);
++            result = 0;
++        }
+     }
+     return result;
+ }

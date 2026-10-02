@@ -1,0 +1,96 @@
+CRASH-20: validate objects and codes in rule premise and action setters
+
+EN_setpremise, EN_setpremiseindex, EN_setpremisestatus,
+EN_setthenaction and EN_setelseaction stored whatever they were given.
+The rule checks then read NodeHead, LinkFlow, LinkStatus and the Node
+and Link arrays at that index, and EN_saveinpfile indexed its keyword
+tables with the codes. The setters now check, as the [RULES] parser
+does, that the node or link exists (203, 204), that the variable suits
+the object, and that the operator and status codes are in range (251).
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-20_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..adcf31f 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -5821,6 +5821,30 @@ int DLLEXPORT EN_setpremise(EN_Project p, int ruleIndex, int premiseIndex,
+     premise = getpremise(premises, premiseIndex);
+     if (premise == NULL)  return 258;
+ 
++    // Check the codes, and that the object exists and has the variable
++    if (logop < 1 || logop > 3) return 251;
++    if (relop < EN_R_EQ || relop > EN_R_ABOVE) return 251;
++    if (status < 0 || status > EN_R_IS_ACTIVE) return 251;
++    if (status > 0 && object != EN_R_LINK) return 251;
++    switch (object)
++    {
++    case EN_R_NODE:
++        if (objIndex < 1 || objIndex > p->network.Nnodes) return 203;
++        if (variable < EN_R_DEMAND || variable > EN_R_DRAINTIME) return 251;
++        if (variable > EN_R_PRESSURE && variable < EN_R_FILLTIME) return 251;
++        break;
++    case EN_R_LINK:
++        if (objIndex < 1 || objIndex > p->network.Nlinks) return 204;
++        if (variable < EN_R_FLOW || variable > EN_R_SETTING) return 251;
++        break;
++    case EN_R_SYSTEM:
++        if (variable != EN_R_DEMAND && variable != EN_R_TIME &&
++            variable != EN_R_CLOCKTIME) return 251;
++        break;
++    default:
++        return 251;
++    }
++
+     premise->logop = logop;
+     premise->object = object;
+     premise->index = objIndex;
+@@ -5852,6 +5876,12 @@ int DLLEXPORT EN_setpremiseindex(EN_Project p, int ruleIndex, int premiseIndex,
+     premise = getpremise(premises, premiseIndex);
+     if (premise == NULL)  return 258;
+ 
++    // Check that the object exists
++    if (premise->object == EN_R_NODE &&
++        (objIndex < 1 || objIndex > p->network.Nnodes)) return 203;
++    if (premise->object == EN_R_LINK &&
++        (objIndex < 1 || objIndex > p->network.Nlinks)) return 204;
++
+     premise->index = objIndex;
+     return 0;
+ }
+@@ -5878,6 +5908,10 @@ int DLLEXPORT EN_setpremisestatus(EN_Project p, int ruleIndex, int premiseIndex,
+     premise = getpremise(premises, premiseIndex);
+     if (premise == NULL) return 258;
+ 
++    // Only a link can be tested against a status
++    if (status < 0 || status > EN_R_IS_ACTIVE) return 251;
++    if (status > 0 && premise->object != EN_R_LINK) return 251;
++
+     premise->status = status;
+     return 0;
+ }
+@@ -5957,6 +5991,11 @@ int DLLEXPORT EN_setthenaction(EN_Project p, int ruleIndex, int actionIndex,
+     action = getaction(actions, actionIndex);
+     if (action == NULL) return 258;
+ 
++    // Check that the link exists, and the status if there is no setting
++    if (linkIndex < 1 || linkIndex > p->network.Nlinks) return 204;
++    if (setting == EN_MISSING &&
++        (status < EN_R_IS_OPEN || status > EN_R_IS_ACTIVE)) return 251;
++
+     action->link = linkIndex;
+     action->status = status;
+     action->setting = setting;
+@@ -6013,6 +6052,11 @@ int DLLEXPORT EN_setelseaction(EN_Project p, int ruleIndex, int actionIndex,
+   action = getaction(actions, actionIndex);
+   if (action == NULL) return 258;
+ 
++  // Check that the link exists, and the status if there is no setting
++  if (linkIndex < 1 || linkIndex > p->network.Nlinks) return 204;
++  if (setting == EN_MISSING &&
++      (status < EN_R_IS_OPEN || status > EN_R_IS_ACTIVE)) return 251;
++
+   action->link = linkIndex;
+   action->status = status;
+   action->setting = setting;

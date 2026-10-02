@@ -1,0 +1,41 @@
+API-29: initialise a new link's diameter, flow, status and setting
+
+EN_addlink sets the diameter of a new pipe or valve but not of a new
+pump, and never sets the new link's entries in the solver's flow,
+status and setting arrays. Those arrays grow with realloc and keep the
+values of a link deleted from the same slot, so a pump made with
+EN_setlinktype reports another link's diameter, and a new link reads
+another link's flow, status and setting until the next run (and the
+stale flow becomes its starting flow). Set a pump's diameter to 0, as
+the parser does, and start every new link with no flow at its initial
+status and setting.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-29_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..23007d1 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -3491,6 +3491,7 @@ int DLLEXPORT EN_addlink(EN_Project p, const char *id, int linkType,
+         link->Kc = 1.0; // Speed factor
+         link->Km = 0.0; // Horsepower
+         link->Len = 0.0;
++        link->Diam = 0.0;
+     }
+     else if (linkType <= PIPE)  // pipe or cvpipe
+     {
+@@ -3520,6 +3521,13 @@ int DLLEXPORT EN_addlink(EN_Project p, const char *id, int linkType,
+     link->LeakArea = 0;
+     link->LeakExpan = 0;
+     link->InitSetting = link->Kc;
++
++    // A new link has no results yet: no flow, and its initial status
++    // and setting
++    hyd->LinkFlow[n] = 0.0;
++    hyd->LinkStatus[n] = link->InitStatus;
++    hyd->LinkSetting[n] = link->InitSetting;
++
+     link->R = 0;
+     link->Rc = 0;
+     link->Rpt = 0;

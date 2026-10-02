@@ -1,0 +1,46 @@
+[TITLE]
+FILE-16: one [PIPES], one [PUMPS] and one [VALVES] line with too few fields
+Each short line has a complete twin (P1, PU1, V1) in parallel, so the network still
+solves without it.
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     500
+ J2   0     500
+ J3   0     0
+ J4   0     500
+
+[RESERVOIRS]
+;ID   Head
+ R1   100
+ R2   0
+ R3   100
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  R1                                         ; end node missing
+ P3  R3  J3  1000    12    100    0      Open
+
+[PUMPS]
+;ID   N1  N2  Parameters
+ PU1  R2  J2  HEAD C1
+ PU2  R2                                        ; end node missing
+
+[VALVES]
+;ID  N1  N2  Diam  Type  Setting
+ V1  J3  J4  12    TCV   0
+ V2  J3  J4  12                                 ; valve type missing
+
+[CURVES]
+;ID  Flow  Head
+ C1  500   100
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+ Headloss  H-W
+
+[END]

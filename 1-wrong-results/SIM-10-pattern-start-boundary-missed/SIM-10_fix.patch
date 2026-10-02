@@ -1,0 +1,25 @@
+SIM-10: include the pattern start in the time to the next pattern period
+
+timestep() finds the next pattern period n from Htime + Pstart, as
+demands() does, but then took the time to it as n*Pstep - Htime, which
+leaves out Pstart. With a pattern start that is not a multiple of the
+pattern step, the step ended on a multiple of Pstep in simulation time
+instead of at the pattern boundary, so each demand change was applied
+late, at the next hydraulic step.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-10_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..e7ac967 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -665,7 +665,7 @@ long  timestep(Project *pr)
+     // Revise time step based on time until next demand period
+     // (n = next pattern period, t = time till next period)
+     n = ((time->Htime + time->Pstart) / time->Pstep) + 1;
+-    t = n * time->Pstep - time->Htime;
++    t = n * time->Pstep - (time->Htime + time->Pstart);
+     if (t > 0 && t < tstep) tstep = t;
+ 
+     // Revise time step based on time until next reporting period

@@ -1,0 +1,26 @@
+FILE-15: do not skip the previous link in the parser's valve check
+
+valvecheck() skips the valve whose link index it is given, so that a
+valve being edited is not compared with itself. valvedata() calls it
+while reading a new valve, before the valve is added, and passed
+net->Nlinks, which is the index of the link read before it. When
+that link is also a valve, the pair was never checked, so for example
+two PRVs on consecutive lines could share a downstream node. The new
+valve has no index yet, so pass 0, as EN_addlink does.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply FILE-15_fix.patch
+
+diff --git a/src/input3.c b/src/input3.c
+index e97110f..80c7a85 100644
+--- a/src/input3.c
++++ b/src/input3.c
+@@ -599,7 +599,7 @@ int valvedata(Project *pr)
+     else return setError(parser, 4, 213);
+     
+     // Check for illegal connections
+-    if (valvecheck(pr, net->Nlinks, type, j1, j2))
++    if (valvecheck(pr, 0, type, j1, j2))
+     {
+         if      (j1 > net->Njuncs) return setError(parser, 1, 219);
+         else if (j2 > net->Njuncs) return setError(parser, 2, 219);

@@ -1,0 +1,28 @@
+SIM-16: treat a negative pump speed from a pattern as closed
+
+A pump's speed pattern is applied through setlinksetting() without a
+range check. A negative factor left the pump OPEN with a negative speed,
+pumpcoeff() took pow() of it, and the NaN flow survived until the end of
+the run. Controls, rules and EN_setlinkvalue already reject negative
+speeds, but a pattern can also drive demands and can be edited at any
+time, so clamp the speed to 0 where it is applied: the pump closes, and
+reopens at the next positive factor.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply SIM-16_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..dfaf2a0 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -452,8 +452,10 @@ void  setlinksetting(Project *pr, int index, double value, StatusType *s,
+     LinkType t = link->Type;
+ 
+     // For a pump, status is OPEN if speed > 0, CLOSED otherwise
++    // (a negative speed, e.g. from a pattern, counts as 0)
+     if (t == PUMP)
+     {
++        if (value < 0.0) value = 0.0;
+         *k = value;
+         if (value > 0 && *s <= CLOSED)
+         {

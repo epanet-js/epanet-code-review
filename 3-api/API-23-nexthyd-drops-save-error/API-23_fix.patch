@@ -1,0 +1,45 @@
+API-23: report hydraulics file write errors from EN_nextH
+
+nexthyd() stored the result of savehyd() in errcode and then overwrote
+it with the result of savehydstep(), so a failed write was dropped
+whenever the next small write succeeded. Keep the first error, with
+ERRCODE. savehyd() also only checked its last fwrite(), and neither
+function checked fflush(); check the stream's error flag after the
+flush in both, so that a failed write anywhere in the step is reported.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-23_fix.patch
+
+diff --git a/src/hydraul.c b/src/hydraul.c
+index fa96868..94d251c 100755
+--- a/src/hydraul.c
++++ b/src/hydraul.c
+@@ -266,7 +266,7 @@ int  nexthyd(Project *pr, long *tstep)
+     *tstep = 0;
+     hydstep = 0;
+     if (time->Htime < time->Dur) hydstep = timestep(pr);
+-    if (pr->outfile.Saveflag) errcode = savehydstep(pr,&hydstep);
++    if (pr->outfile.Saveflag) ERRCODE(savehydstep(pr,&hydstep));
+ 
+     // Accumulate pumping energy
+     if (time->Dur == 0) addenergy(pr,0);
+diff --git a/src/output.c b/src/output.c
+index 5ecd743..1e79e58 100644
+--- a/src/output.c
++++ b/src/output.c
+@@ -223,6 +223,7 @@ int savehyd(Project *pr, long *htime)
+     //if (f_save(x, net->Nlinks, HydFile) < (unsigned)net->Nlinks) errcode = 308;
+     free(x);
+     fflush(HydFile);
++    if (ferror(HydFile)) errcode = 308;
+     return errcode;
+ }
+ 
+@@ -245,6 +246,7 @@ int savehydstep(Project *pr, long *hydstep)
+     if (fwrite(&t, sizeof(INT4), 1, out->HydFile) < 1) errcode = 308;
+     if (t == 0) fputc(EOFMARK, out->HydFile);
+     fflush(out->HydFile);
++    if (ferror(out->HydFile)) errcode = 308;
+     return errcode;
+ }
+ 

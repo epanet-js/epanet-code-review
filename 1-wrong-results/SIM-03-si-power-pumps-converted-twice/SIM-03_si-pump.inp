@@ -1,0 +1,24 @@
+[TITLE]
+SIM-03: a 10 kW constant-power pump lifts 10 L/s from reservoir R1 (head 0) to J1
+Correct head gain: P / (rho g Q) = 10 / (9.81 x 0.010) = 101.9 m
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   0     10        ; L/s
+
+[RESERVOIRS]
+;ID   Head
+ R1   0
+
+[PUMPS]
+;ID   N1  N2  Parameters
+ PU1  R1  J1  POWER 10    ; kW, because the units are SI
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     LPS
+ Headloss  H-W
+
+[END]

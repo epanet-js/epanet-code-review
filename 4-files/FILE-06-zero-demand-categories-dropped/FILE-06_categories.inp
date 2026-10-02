@@ -1,0 +1,43 @@
+[TITLE]
+FILE-06: demand categories with zero base demand, with and without a name or pattern
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   50    0
+ J2   40    0
+ J3   40    0
+
+[RESERVOIRS]
+;ID   Head
+ R1   150
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+ P2  J1  J2  1000    8     100    0      Open
+ P3  J1  J3  1000    8     100    0      Open
+
+[DEMANDS]
+;A comment on a demand line is the category name, so the notes are up here:
+;J1 has a 10 gpm "Domestic" category and a zero "Fire flow" placeholder with
+;its own pattern. J2 has a zero category with no name or pattern. J3 has a
+;zero category with a pattern but no name.
+;Junction  Demand  Pattern
+ J1        10      DAILY    ;Domestic
+ J1        0       FIRE     ;Fire flow
+ J2        0
+ J3        0       FIRE
+
+[PATTERNS]
+;ID     Multipliers
+ DAILY  0.8  1.0  1.2  1.0
+ FIRE   0    0    1    0
+
+[TIMES]
+ Duration         3:00
+ Pattern Timestep 1:00
+
+[OPTIONS]
+ Units     GPM
+
+[END]

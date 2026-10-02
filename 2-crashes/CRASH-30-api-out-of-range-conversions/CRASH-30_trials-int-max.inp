@@ -1,0 +1,22 @@
+[TITLE]
+CRASH-30: TRIALS at the int limit, with UNBALANCED CONTINUE adding 10 more
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   100   500
+
+[RESERVOIRS]
+;ID   Head
+ R1   200
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough
+ P1  R1  J1  5000    8     100
+
+[OPTIONS]
+ Units       GPM
+ Headloss    H-W
+ Trials      2147483647     ; INT_MAX, a valid int
+ Unbalanced  Continue 10    ; the solver adds these to TRIALS
+
+[END]

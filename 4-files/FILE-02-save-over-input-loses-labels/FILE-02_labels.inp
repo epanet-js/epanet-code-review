@@ -1,0 +1,38 @@
+[TITLE]
+FILE-02: a small network with two map labels and a backdrop
+
+[JUNCTIONS]
+;ID   Elev  Demand
+ J1   50    100
+
+[RESERVOIRS]
+;ID   Head
+ R1   150
+
+[PIPES]
+;ID  N1  N2  Length  Diam  Rough  Mloss  Status
+ P1  R1  J1  1000    12    100    0      Open
+
+[TIMES]
+ Duration  0
+
+[OPTIONS]
+ Units     GPM
+
+[COORDINATES]
+;Node  X-Coord  Y-Coord
+ R1    0        50
+ J1    100      50
+
+[LABELS]
+;X-Coord  Y-Coord  Label & Anchor Node
+ 0        60       "Source"           ;these two lines are only kept in the file
+ 100      60       "Town"     J1
+
+[BACKDROP]
+ DIMENSIONS  0  0  100  100      ;so is this section
+ UNITS       None
+ FILE
+ OFFSET      0  0
+
+[END]

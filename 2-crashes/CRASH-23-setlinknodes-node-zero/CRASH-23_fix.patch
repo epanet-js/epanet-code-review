@@ -1,0 +1,27 @@
+CRASH-23: reject node index 0 in EN_setlinknodes
+
+EN_setlinknodes tested its node arguments with "< 0", so node index 0
+was accepted and a link could be attached to the unused slot Node[0].
+The connectivity check that runs after a hydraulic warning then counts
+node 0 as an extra node and writes past the end of its node list
+(report.c, disconnected() and marknodes()). Test "<= 0", as the link
+index check above does.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply CRASH-23_fix.patch
+
+diff --git a/src/epanet.c b/src/epanet.c
+index 47dc1e4..9be0a04 100644
+--- a/src/epanet.c
++++ b/src/epanet.c
+@@ -3834,8 +3834,8 @@ int DLLEXPORT EN_setlinknodes(EN_Project p, int index, int node1, int node2)
+     if (index <= 0 || index > net->Nlinks) return 204;
+ 
+     // Check that nodes exist
+-    if (node1 < 0 || node1 > net->Nnodes) return 203;
+-    if (node2 < 0 || node2 > net->Nnodes) return 203;
++    if (node1 <= 0 || node1 > net->Nnodes) return 203;
++    if (node2 <= 0 || node2 > net->Nnodes) return 203;
+ 
+     // Check that nodes are not the same
+     if (node1 == node2) return 222;

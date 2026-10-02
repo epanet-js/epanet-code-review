@@ -1,0 +1,54 @@
+API-26: give links their initial status and clear demands on load
+
+Until EN_initH, the solver's link status and setting arrays are still
+zero from calloc, so EN_STATUS read "closed" for every link and
+EN_SETTING read 0 for pumps and valves. EN_DEMAND read the parser's
+scratch value: the [JUNCTIONS] demand in user units times the flow
+factor, or MISSING for a junction listed in [DEMANDS]. Set each link's
+status and setting to its initial ones, and each junction's demand to
+0, when the network is loaded. Also document that flows read between
+EN_initH and EN_runH are the solver's starting values.
+
+Apply from the root of an EPANET checkout at 83e25bb:
+    git apply API-26_fix.patch
+
+diff --git a/include/epanet2_2.h b/include/epanet2_2.h
+index af0dd62..8a340f0 100644
+--- a/include/epanet2_2.h
++++ b/include/epanet2_2.h
+@@ -316,6 +316,10 @@ typedef struct Project *EN_Project;
+   Be sure to call ::EN_initH prior to running a hydraulic analysis using a
+   ::EN_runH - ::EN_nextH loop.
+ 
++  Until ::EN_runH computes the first solution, the flows returned by
++  ::EN_getlinkvalue and ::EN_getnodevalue (such as `EN_FLOW` and
++  `EN_EMITTERFLOW`) are the solver's starting values, not results.
++
+   Choose to save hydraulics results if you will be:
+   - making a subsequent water quality run,
+   - using ::EN_report to generate a report
+diff --git a/src/input1.c b/src/input1.c
+index bb1db45..d645547 100644
+--- a/src/input1.c
++++ b/src/input1.c
+@@ -535,6 +535,9 @@ void convertunits(Project *pr)
+         {
+             demand->Base /= pr->Ucf[DEMAND];
+         }
++
++        // The parser used NodeDemand as a marker; no demand is computed yet
++        hyd->NodeDemand[i] = 0.0;
+     }
+     
+     // Convert PDA pressure limits
+@@ -630,6 +633,10 @@ void convertunits(Project *pr)
+             }
+         }
+         link->InitSetting = link->Kc;
++
++        // Before a run a link's status and setting are its initial ones
++        hyd->LinkStatus[k] = link->InitStatus;
++        hyd->LinkSetting[k] = link->InitSetting;
+     }
+ 
+     // Convert units on control settings
