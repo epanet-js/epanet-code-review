@@ -213,3 +213,7 @@ WQ-01, WQ-02 and WQ-03 give wrong results with no warning, and WQ-02 affects man
 - **Introduced after v2.3.5, so they can be fixed before they ship:** CRASH-15 and API-11 (PR [#908](https://github.com/OpenWaterAnalytics/EPANET/issues/908)), and API-24 (PR [#919](https://github.com/OpenWaterAnalytics/EPANET/issues/919)). PR [#906](https://github.com/OpenWaterAnalytics/EPANET/issues/906) also expands the leakage documentation that SIM-04 corrects; the wording itself dates from 2024.
 - **Already reported:** API-17 ([#2](https://github.com/OpenWaterAnalytics/EPANET/issues/2), 2015), API-02 ([#828](https://github.com/OpenWaterAnalytics/EPANET/issues/828)), API-04 ([#647](https://github.com/OpenWaterAnalytics/EPANET/issues/647), won't fix), API-18 ([#633](https://github.com/OpenWaterAnalytics/EPANET/issues/633)), FILE-02 ([#522](https://github.com/OpenWaterAnalytics/EPANET/issues/522)) and FILE-06 ([#174](https://github.com/OpenWaterAnalytics/EPANET/issues/174), by design).
 - **Reported after the review:** SIM-01 ([#936](https://github.com/OpenWaterAnalytics/EPANET/issues/936)) and API-06 ([#937](https://github.com/OpenWaterAnalytics/EPANET/issues/937)). [#940](https://github.com/OpenWaterAnalytics/EPANET/issues/940) has since fixed both.
+
+## Licence
+
+The write-ups, tests, input files, patches and scripts in this repository are released by Iterating Inc. under the [MIT licence](LICENSE), the same licence as EPANET, so the fixes can be merged freely. The `epanet` submodule is EPANET itself, under its own licence.
